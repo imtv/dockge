@@ -572,12 +572,13 @@ export default {
     @media (min-width: 768px) {
         grid-template-columns:
             1.75rem
-            minmax(0, 2.4fr)
-            minmax(0, 0.9fr)
-            minmax(0, 0.75fr)
+            minmax(0, 2.6fr)
+            minmax(0, 0.72fr)
+            minmax(0, 0.58fr)
             2.25rem;
         padding: 8px 10px;
-        column-gap: 0.65rem;
+        /* tighter gap between ID / size (and later created / status) */
+        column-gap: 0.35rem;
 
         .row-id,
         .row-meta {
@@ -589,20 +590,32 @@ export default {
         }
     }
 
-    /* desktop: + created + status; name ~ half of free, rest shared */
+    /* desktop: + created + status (created/status tracks a bit tighter) */
     @media (min-width: 992px) {
         grid-template-columns:
             1.75rem
-            minmax(0, 2.2fr)
-            minmax(0, 0.75fr)
-            minmax(0, 0.6fr)
-            minmax(0, 1fr)
-            minmax(0, 0.75fr)
+            minmax(0, 2.55fr)
+            minmax(0, 0.62fr)
+            minmax(0, 0.48fr)
+            minmax(0, 0.72fr)
+            minmax(0, 0.52fr)
             2.25rem;
+        column-gap: 0.28rem;
 
         .row-created,
         .row-status {
             display: flex;
+        }
+
+        /* pull 创建时间 ↔ 状态 a touch closer without squeezing other cols */
+        .row-created {
+            padding-right: 0;
+            margin-right: -0.15rem;
+        }
+
+        .row-status {
+            padding-left: 0;
+            margin-left: -0.15rem;
         }
     }
 
