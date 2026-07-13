@@ -88,14 +88,22 @@ export default {
 
 <style scoped lang="scss">
 .editor-box {
-    /* Same as upstream Compose.vue */
+    /* Same as Compose.vue editor */
     font-family: "JetBrains Mono", monospace;
     font-size: 14px;
     overflow: hidden;
-    background-color: #0d1117;
+    background-color: #f0f2f5;
 
     &.edit-mode {
-        background-color: #161b22;
+        background-color: #ffffff;
+    }
+
+    :global(.dark) & {
+        background-color: #0d1117;
+
+        &.edit-mode {
+            background-color: #161b22;
+        }
     }
 
     :deep(.cm-editor),

@@ -883,21 +883,21 @@ export default {
     font-family: "JetBrains Mono", monospace;
     font-size: 14px;
     overflow: hidden;
-    /* view / after save — darker (matches .dark .shadow-box $dark-bg) */
-    background-color: #0d1117;
+    /* Light theme defaults */
+    background-color: #f0f2f5;
 
     &.edit-mode {
-        /* editing — lighter gray-white vs pure black (original contrast) */
-        background-color: #161b22;
+        background-color: #ffffff;
     }
 
-    /* light theme fallback */
-    :root:not(.dark) &,
-    body:not(.dark) & {
-        background-color: #f0f2f5;
+    /* Dark theme — .dark is on body (not :root) */
+    :global(.dark) & {
+        /* view / saved — darker */
+        background-color: #0d1117;
 
         &.edit-mode {
-            background-color: #ffffff;
+            /* editing — slightly lighter gray */
+            background-color: #161b22;
         }
     }
 
