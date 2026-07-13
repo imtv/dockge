@@ -275,13 +275,25 @@ export async function listLocalImages(): Promise<LocalImageInfo[]> {
 }
 
 export function formatImageList(images: LocalImageInfo[], checker: ImageUpdateChecker): ImageListItem[] {
-    return images.map((img) => {
+    const items = images.map((img) => {
         const dangling = img.imageName === "<none>" || img.imageTag === "<none>";
+        // Untagged (dangling) images still keep RepoDigests like repo@sha256:… —
+        // recover the original repository name so old pulls remain recognizable.
+        let name = img.imageName;
+        let tag = img.imageTag;
+        if (dangling) {
+            const fromDigest = nameFromRepoDigest(img.repoDigests);
+            if (fromDigest) {
+                name = fromDigest;
+            }
+            // Keep a clear tag marker (UI also badges as dangling)
+            tag = "<none>";
+        }
         return {
             id: img.id,
             shortId: img.shortId,
-            name: img.imageName,
-            tag: img.imageTag,
+            name,
+            tag,
             size: img.size,
             sizeFormat: formatBytes(img.size),
             created: img.created,
@@ -294,6 +306,36 @@ export function formatImageList(images: LocalImageInfo[], checker: ImageUpdateCh
             dangling,
         };
     });
+
+    // Cleanup-friendly order: dangling first, then unused, then in-use; newer first within group
+    items.sort((a, b) => {
+        const rank = (x: ImageListItem) => (x.dangling ? 0 : x.inUsed ? 2 : 1);
+        const d = rank(a) - rank(b);
+        if (d !== 0) {
+            return d;
+        }
+        return (b.created || 0) - (a.created || 0);
+    });
+
+    return items;
+}
+
+/** Parse "registry/path/name@sha256:…" → repository path */
+function nameFromRepoDigest(digests: string[] | undefined): string | null {
+    if (!digests || digests.length === 0) {
+        return null;
+    }
+    for (const d of digests) {
+        if (!d || d === "<none>") {
+            continue;
+        }
+        const at = d.lastIndexOf("@");
+        const ref = at === -1 ? d : d.slice(0, at);
+        if (ref && ref !== "<none>") {
+            return ref;
+        }
+    }
+    return null;
 }
 
 /**

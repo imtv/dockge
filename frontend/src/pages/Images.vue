@@ -56,6 +56,10 @@
                             <span>{{ $t("unusedOnly") }}</span>
                         </label>
                         <label class="filter-check">
+                            <input v-model="filterDanglingOnly" class="form-check-input" type="checkbox">
+                            <span>{{ $t("danglingOnly") }}</span>
+                        </label>
+                        <label class="filter-check">
                             <input v-model="filterUpdateOnly" class="form-check-input" type="checkbox">
                             <span>{{ $t("updateAvailableOnly") }}</span>
                         </label>
@@ -123,8 +127,9 @@
                     </label>
                     <div class="row-main">
                         <div class="title-line">
-                            <span class="name">{{ img.name }}</span>
-                            <span class="tag">:{{ img.tag }}</span>
+                            <span class="name">{{ displayImageName(img) }}</span>
+                            <span class="tag">:{{ displayImageTag(img) }}</span>
+                            <span v-if="img.dangling" class="badge dangling-badge ms-2">{{ $t("dangling") }}</span>
                             <span v-if="img.needUpdate" class="badge update-badge ms-2">{{ $t("update") }}</span>
                         </div>
                         <!-- Mobile: meta under name (no fixed-width side columns) -->
@@ -156,8 +161,8 @@
                     </div>
                     <div class="row-status">
                         <span v-if="img.inUsed" class="status-pill active">{{ $t("inUse") }}</span>
-                        <span v-else-if="img.dangling" class="status-pill dangling">{{ $t("dangling") }}</span>
                         <span v-else class="status-pill unused">{{ $t("unused") }}</span>
+                        <span v-if="img.dangling" class="status-pill dangling ms-1">{{ $t("dangling") }}</span>
                     </div>
                     <div class="row-actions">
                         <button
@@ -193,6 +198,7 @@ export default {
             checking: false,
             searchText: "",
             filterUnusedOnly: false,
+            filterDanglingOnly: false,
             filterUpdateOnly: false,
             selectedMap: {},
             checkStatus: {},
@@ -208,11 +214,21 @@ export default {
                 list = list.filter((img) =>
                     img.name.toLowerCase().includes(q) ||
                     img.tag.toLowerCase().includes(q) ||
-                    img.shortId.toLowerCase().includes(q)
+                    img.shortId.toLowerCase().includes(q) ||
+                    (img.dangling && (
+                        q.includes("dangling") ||
+                        q.includes("untagged") ||
+                        q.includes("none") ||
+                        q.includes("无标签") ||
+                        q.includes("旧镜像")
+                    ))
                 );
             }
             if (this.filterUnusedOnly) {
                 list = list.filter((img) => !img.inUsed);
+            }
+            if (this.filterDanglingOnly) {
+                list = list.filter((img) => img.dangling);
             }
             if (this.filterUpdateOnly) {
                 list = list.filter((img) => img.needUpdate);
@@ -244,6 +260,26 @@ export default {
                 return "";
             }
             return new Date(ts).toLocaleString();
+        },
+        /** Avoid raw "<none>" looking like a blank/missing row */
+        displayImageName(img) {
+            if (!img) {
+                return "";
+            }
+            if (img.name && img.name !== "<none>") {
+                return img.name;
+            }
+            // Fallback: still show something cleanable
+            return this.$t("danglingImage");
+        },
+        displayImageTag(img) {
+            if (!img) {
+                return "";
+            }
+            if (img.dangling || !img.tag || img.tag === "<none>") {
+                return this.$t("danglingTag");
+            }
+            return img.tag;
         },
         loadImages() {
             this.loading = true;
@@ -384,6 +420,21 @@ export default {
     padding: 2px 6px;
     border-radius: 6px;
     vertical-align: middle;
+}
+
+.dangling-badge {
+    background-color: rgba(240, 173, 78, 0.25);
+    color: #a66b00;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 6px;
+    vertical-align: middle;
+
+    .dark & {
+        background-color: rgba(240, 173, 78, 0.18);
+        color: #e0a54a;
+    }
 }
 
 /* StackList-like panel */
