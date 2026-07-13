@@ -50,10 +50,20 @@ export default {
             return null;
         };
 
+        const noFocusOutline = EditorView.theme({
+            "&.cm-focused": {
+                outline: "none",
+            },
+            ".cm-content": {
+                outline: "none",
+            },
+        });
+
         const extensionsEnv = [
             editorTheme,
             python(),
             lineNumbers(),
+            noFocusOutline,
             EditorView.focusChangeEffect.of(focusEffectHandler),
         ];
 

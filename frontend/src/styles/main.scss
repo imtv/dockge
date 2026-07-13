@@ -682,6 +682,7 @@ code {
 }
 .cm-editor {
 	background-color: transparent !important;
+    outline: none !important;
 }
 .cm-activeLine, .cm-activeLineGutter {
 	background-color: transparent !important;
@@ -689,7 +690,17 @@ code {
 .cm-selectionBackground {
     background-color: #74c2ff3d !important;
 }
-.cm-focused {
+/* Kill CodeMirror default focus outline (dotted/white flash on click) */
+.cm-focused,
+.cm-editor.cm-focused,
+.vue-codemirror:focus,
+.vue-codemirror:focus-visible,
+.cm-content:focus,
+.cm-content:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+}
+.editor-box:focus-within {
     outline: none !important;
 }
 

@@ -313,10 +313,21 @@ export default {
             return null;
         };
 
+        // Suppress CM default focus outline (avoids white/dotted flash on click)
+        const noFocusOutline = EditorView.theme({
+            "&.cm-focused": {
+                outline: "none",
+            },
+            ".cm-content": {
+                outline: "none",
+            },
+        });
+
         const extensions = [
             editorTheme,
             yaml(),
             lineNumbers(),
+            noFocusOutline,
             EditorView.focusChangeEffect.of(focusEffectHandler)
         ];
 
@@ -324,6 +335,7 @@ export default {
             editorTheme,
             python(),
             lineNumbers(),
+            noFocusOutline,
             EditorView.focusChangeEffect.of(focusEffectHandler)
         ];
 
