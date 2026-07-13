@@ -38,6 +38,7 @@ import { AgentSocket } from "../common/agent-socket";
 import { ManageAgentSocketHandler } from "./socket-handlers/manage-agent-socket-handler";
 import { Terminal } from "./terminal";
 import { imageUpdateChecker } from "./image-update-checker";
+import { getStackPortsMap } from "./stack-ports";
 
 export class DockgeServer {
     app : Express;
@@ -614,13 +615,19 @@ export class DockgeServer {
                     stackList = await Stack.getStackList(this, useCache);
                 }
 
+                // imtv: ports per stack (bridge published / host EXPOSE)
+                const portsMap = await getStackPortsMap();
+
                 let map : Map<string, object> = new Map();
 
                 for (let [ stackName, stack ] of stackList) {
+                    const portInfo = portsMap.get(stackName);
                     map.set(stackName, {
                         ...stack.toSimpleJSON(dockgeSocket.endpoint),
                         // imtv: image update indicator from registry digest check
                         hasUpdate: imageUpdateChecker.stackHasUpdate(stackName),
+                        ports: portInfo?.ports || [],
+                        hostNetwork: portInfo?.hostNetwork || false,
                     });
                 }
 

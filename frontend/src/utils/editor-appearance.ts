@@ -10,13 +10,25 @@ import type { Extension } from "@codemirror/state";
 /** Soft blue-gray like original Dracula panel (#2d2f3f), not pure black */
 const EDITOR_BG = "#2d2f3f";
 const EDITOR_GUTTER_BG = "#282a36";
+const LINE_HEIGHT = "1.55";
+const FONT_SIZE = "15.5px";
+const FONT_FAMILY = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace";
 
-/** Base chrome: font, size, dim default text, original-like panel bg, no focus flash */
+/**
+ * Base chrome: font, size, dim default text, original-like panel bg.
+ * Line numbers use the same font-size/line-height as content so they stay aligned.
+ */
 export const softEditorChrome: Extension = EditorView.theme({
     "&": {
-        fontSize: "15.5px",
-        fontFamily: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace",
+        fontSize: FONT_SIZE,
+        fontFamily: FONT_FAMILY,
         color: "#a8b0bd",
+        backgroundColor: EDITOR_BG,
+    },
+    ".cm-scroller": {
+        fontFamily: "inherit",
+        fontSize: "inherit",
+        lineHeight: LINE_HEIGHT,
         backgroundColor: EDITOR_BG,
     },
     ".cm-content": {
@@ -24,28 +36,58 @@ export const softEditorChrome: Extension = EditorView.theme({
         fontSize: "inherit",
         caretColor: "#a8b0bd",
         outline: "none",
-        lineHeight: "1.55",
+        lineHeight: LINE_HEIGHT,
         backgroundColor: EDITOR_BG,
+        // Match gutter vertical metrics
+        paddingTop: "4px",
+        paddingBottom: "4px",
     },
-    ".cm-scroller": {
+    ".cm-line": {
         fontFamily: "inherit",
-        lineHeight: "1.55",
-        backgroundColor: EDITOR_BG,
+        fontSize: "inherit",
+        lineHeight: LINE_HEIGHT,
+        padding: "0 4px 0 2px",
     },
     "&.cm-focused": {
         outline: "none",
     },
     ".cm-gutters": {
         backgroundColor: EDITOR_GUTTER_BG,
-        color: "#6e7681",
+        color: "#7a8494",
         border: "none",
-        fontSize: "13px",
+        fontFamily: "inherit",
+        fontSize: "inherit",
+        lineHeight: LINE_HEIGHT,
+        // Keep gutters aligned with content padding
+        paddingTop: "4px",
+        paddingBottom: "4px",
+    },
+    ".cm-gutter": {
+        fontFamily: "inherit",
+        fontSize: "inherit",
+        lineHeight: LINE_HEIGHT,
+    },
+    ".cm-gutterElement": {
+        fontFamily: "inherit",
+        fontSize: "inherit",
+        lineHeight: LINE_HEIGHT,
+        // CM sets height via style; line-height match avoids visual offset
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        boxSizing: "border-box",
+        padding: "0 10px 0 8px",
+        minWidth: "2.75em",
+    },
+    ".cm-lineNumbers .cm-gutterElement": {
+        textAlign: "right",
     },
     ".cm-activeLine": {
         backgroundColor: "rgba(68, 71, 90, 0.35)",
     },
     ".cm-activeLineGutter": {
         backgroundColor: "rgba(68, 71, 90, 0.35)",
+        color: "#a8b0bd",
     },
     ".cm-selectionBackground, &.cm-focused .cm-selectionBackground": {
         backgroundColor: "rgba(116, 194, 255, 0.18) !important",

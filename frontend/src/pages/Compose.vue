@@ -876,17 +876,32 @@ export default {
 .editor-box {
     font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 15.5px;
+    line-height: 1.55;
     /* Original Dracula-like panel (not pure black page bg) */
     background-color: #2d2f3f !important;
     overflow: hidden;
 
-    /* Ensure CM inherits mono font even if theme load order differs */
+    /* Same metrics for content + line numbers (keeps rows aligned) */
+    :deep(.cm-editor),
+    :deep(.cm-content),
+    :deep(.cm-scroller),
+    :deep(.cm-gutters),
+    :deep(.cm-gutter),
+    :deep(.cm-line),
+    :deep(.cm-gutterElement) {
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
+    }
+
     :deep(.cm-editor),
     :deep(.cm-content),
     :deep(.cm-scroller) {
-        font-family: inherit;
-        font-size: inherit;
         background-color: #2d2f3f;
+    }
+
+    :deep(.cm-gutters) {
+        background-color: #282a36;
     }
 }
 

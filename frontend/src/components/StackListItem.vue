@@ -10,11 +10,23 @@
                 :title="$t('imageUpdateAvailable')"
             >{{ $t("update") }}</span>
         </div>
+        <!-- imtv: published / host ports on the right -->
+        <div v-if="displayPorts.length > 0" class="ports" :title="portsTitle">
+            <span v-if="stack.hostNetwork" class="host-tag">host</span>
+            <span
+                v-for="(p, i) in displayPorts"
+                :key="i"
+                class="port-chip"
+            >{{ p }}</span>
+            <span v-if="extraPortCount > 0" class="port-chip more">+{{ extraPortCount }}</span>
+        </div>
     </router-link>
 </template>
 
 <script>
 import Uptime from "./Uptime.vue";
+
+const MAX_VISIBLE_PORTS = 4;
 
 export default {
     components: {
@@ -75,7 +87,24 @@ export default {
         },
         stackName() {
             return this.stack.name;
-        }
+        },
+        allPorts() {
+            const ports = this.stack?.ports;
+            return Array.isArray(ports) ? ports : [];
+        },
+        displayPorts() {
+            return this.allPorts.slice(0, MAX_VISIBLE_PORTS);
+        },
+        extraPortCount() {
+            return Math.max(0, this.allPorts.length - MAX_VISIBLE_PORTS);
+        },
+        portsTitle() {
+            const list = this.allPorts.join(", ");
+            if (this.stack.hostNetwork) {
+                return `host: ${list}`;
+            }
+            return list;
+        },
     },
     watch: {
         isSelectMode() {
@@ -143,6 +172,7 @@ export default {
     transition: all ease-in-out 0.15s;
     width: 100%;
     padding: 5px 8px;
+    gap: 6px;
     &.disabled {
         opacity: 0.3;
     }
@@ -158,6 +188,8 @@ export default {
         align-items: center;
         flex-wrap: wrap;
         gap: 2px;
+        min-width: 0;
+        flex: 1 1 auto;
     }
     .update-badge {
         background-color: #f0ad4e;
@@ -173,6 +205,60 @@ export default {
         font-size: 12px;
         color: $dark-font-color3;
     }
+}
+
+.ports {
+    margin-left: auto;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 4px;
+    max-width: 48%;
+    flex: 0 1 auto;
+}
+
+.host-tag {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: lowercase;
+    color: $dark-font-color3;
+    border: 1px solid rgba(87, 92, 98, 0.45);
+    border-radius: 4px;
+    padding: 1px 4px;
+    line-height: 1.2;
+}
+
+.port-chip {
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(116, 194, 255, 0.14);
+    color: #4a8fbf;
+    white-space: nowrap;
+
+    &.more {
+        background: rgba(87, 92, 98, 0.12);
+        color: $dark-font-color3;
+    }
+
+    .dark & {
+        background: rgba(116, 194, 255, 0.12);
+        color: #74c2ff;
+
+        &.more {
+            background: rgba(255, 255, 255, 0.06);
+            color: $dark-font-color3;
+        }
+    }
+}
+
+.dark .host-tag {
+    color: $dark-font-color3;
+    border-color: $dark-border-color;
 }
 
 .collapsed {

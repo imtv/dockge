@@ -1,11 +1,11 @@
 <template>
-    <div>
+    <div class="images-page">
         <h1 class="mb-3">
-            <font-awesome-icon icon="images" class="me-2" />
             {{ $t("images") }}
         </h1>
 
-        <div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
+        <!-- Toolbar: same button language as rest of Dockge -->
+        <div class="mb-3 toolbar">
             <button class="btn btn-primary" :disabled="loading || checking" @click="checkUpdates">
                 <font-awesome-icon icon="cloud-arrow-down" class="me-1" :spin="checking" />
                 {{ checking ? $t("checkingUpdates") : $t("checkImageUpdates") }}
@@ -14,13 +14,15 @@
                 <font-awesome-icon icon="arrows-rotate" class="me-1" />
                 {{ $t("refresh") }}
             </button>
-            <button class="btn btn-outline-danger" :disabled="loading || unusedCount === 0" @click="confirmPruneUnused">
+            <button class="btn btn-normal" :disabled="loading || unusedCount === 0" @click="confirmPruneUnused">
                 <font-awesome-icon icon="trash" class="me-1" />
-                {{ $t("pruneUnusedImages") }} ({{ unusedCount }})
+                {{ $t("pruneUnusedImages") }}
+                <span v-if="unusedCount > 0" class="count-pill">{{ unusedCount }}</span>
             </button>
-            <button class="btn btn-outline-warning" :disabled="loading || danglingCount === 0" @click="confirmPruneDangling">
+            <button class="btn btn-normal" :disabled="loading || danglingCount === 0" @click="confirmPruneDangling">
                 <font-awesome-icon icon="trash" class="me-1" />
-                {{ $t("pruneDanglingImages") }} ({{ danglingCount }})
+                {{ $t("pruneDanglingImages") }}
+                <span v-if="danglingCount > 0" class="count-pill">{{ danglingCount }}</span>
             </button>
             <button
                 v-if="selectedIds.length > 0"
@@ -29,96 +31,122 @@
                 @click="confirmRemoveSelected"
             >
                 <font-awesome-icon icon="trash" class="me-1" />
-                {{ $t("deleteSelected") }} ({{ selectedIds.length }})
+                {{ $t("deleteSelected") }}
+                <span class="count-pill danger">{{ selectedIds.length }}</span>
             </button>
 
-            <span v-if="checkStatus.lastCheckAt" class="text-muted small ms-2">
+            <span v-if="checkStatus.lastCheckAt" class="meta-line">
                 {{ $t("lastChecked") }}: {{ formatTime(checkStatus.lastCheckAt) }}
-                <span v-if="checkStatus.imageUpdateCount > 0" class="badge bg-warning text-dark ms-1">
+                <span v-if="checkStatus.imageUpdateCount > 0" class="badge update-badge ms-2">
                     {{ checkStatus.imageUpdateCount }} {{ $t("updatesAvailable") }}
                 </span>
             </span>
         </div>
 
-        <div class="mb-3">
-            <div class="search-wrapper d-inline-flex align-items-center">
-                <input v-model="searchText" class="form-control search-input" :placeholder="$t('searchImages')" />
+        <!-- List panel mirrors StackList chrome -->
+        <div class="shadow-box image-panel mb-3">
+            <div class="list-header">
+                <div class="header-top">
+                    <div class="filters">
+                        <label class="filter-check">
+                            <input v-model="filterUnusedOnly" class="form-check-input" type="checkbox">
+                            <span>{{ $t("unusedOnly") }}</span>
+                        </label>
+                        <label class="filter-check">
+                            <input v-model="filterUpdateOnly" class="form-check-input" type="checkbox">
+                            <span>{{ $t("updateAvailableOnly") }}</span>
+                        </label>
+                    </div>
+                    <div class="search-wrapper">
+                        <a v-if="searchText === ''" class="search-icon">
+                            <font-awesome-icon icon="search" />
+                        </a>
+                        <a v-else class="search-icon" @click="searchText = ''">
+                            <font-awesome-icon icon="times" />
+                        </a>
+                        <input
+                            v-model="searchText"
+                            class="form-control search-input"
+                            autocomplete="off"
+                            :placeholder="$t('searchImages')"
+                        >
+                    </div>
+                </div>
             </div>
-            <div class="form-check form-check-inline ms-3">
-                <input id="filterUnused" v-model="filterUnusedOnly" class="form-check-input" type="checkbox">
-                <label class="form-check-label" for="filterUnused">{{ $t("unusedOnly") }}</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input id="filterUpdate" v-model="filterUpdateOnly" class="form-check-input" type="checkbox">
-                <label class="form-check-label" for="filterUpdate">{{ $t("updateAvailableOnly") }}</label>
-            </div>
-        </div>
 
-        <div class="shadow-box image-list-box">
-            <div v-if="loading && imageList.length === 0" class="p-4 text-center text-muted">
+            <div v-if="loading && imageList.length === 0" class="empty-state">
                 {{ $t("loading") }}...
             </div>
-            <div v-else-if="filteredList.length === 0" class="p-4 text-center text-muted">
+            <div v-else-if="filteredList.length === 0" class="empty-state">
                 {{ $t("noImages") }}
             </div>
-            <div v-else class="table-responsive">
-                <table class="table table-hover align-middle mb-0 image-table">
-                    <thead>
-                        <tr>
-                            <th style="width: 40px">
-                                <input
-                                    class="form-check-input"
-                                    type="checkbox"
-                                    :checked="allSelectableSelected"
-                                    @change="toggleSelectAll"
-                                >
-                            </th>
-                            <th>{{ $t("imageName") }}</th>
-                            <th>{{ $t("tag") }}</th>
-                            <th>{{ $t("imageId") }}</th>
-                            <th>{{ $t("size") }}</th>
-                            <th>{{ $t("created") }}</th>
-                            <th>{{ $t("status") }}</th>
-                            <th style="width: 100px">{{ $t("actions") }}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="img in filteredList" :key="img.id + img.name + img.tag">
-                            <td>
-                                <input
-                                    v-model="selectedMap[img.id]"
-                                    class="form-check-input"
-                                    type="checkbox"
-                                    :disabled="img.inUsed"
-                                    :title="img.inUsed ? $t('imageInUse') : ''"
-                                >
-                            </td>
-                            <td>
-                                <span class="fw-medium name-cell">{{ img.name }}</span>
-                                <span v-if="img.needUpdate" class="badge bg-warning text-dark ms-2">{{ $t("update") }}</span>
-                            </td>
-                            <td><code class="mono-chip">{{ img.tag }}</code></td>
-                            <td><code class="mono-chip small">{{ img.shortId }}</code></td>
-                            <td>{{ img.sizeFormat }}</td>
-                            <td class="small create-time">{{ img.createTime }}</td>
-                            <td>
-                                <span v-if="img.inUsed" class="badge bg-success">{{ $t("inUse") }}</span>
-                                <span v-else-if="img.dangling" class="badge bg-secondary">{{ $t("dangling") }}</span>
-                                <span v-else class="badge bg-secondary">{{ $t("unused") }}</span>
-                            </td>
-                            <td>
-                                <button
-                                    class="btn btn-sm btn-outline-danger"
-                                    :disabled="img.inUsed || loading"
-                                    :title="img.inUsed ? $t('imageInUse') : $t('deleteImage')"
-                                    @click="confirmRemoveOne(img)"
-                                >
-                                    <font-awesome-icon icon="trash" />
-                                </button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div v-else class="image-list">
+                <!-- Select-all row -->
+                <div class="image-row select-all-row">
+                    <label class="row-check">
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            :checked="allSelectableSelected"
+                            @change="toggleSelectAll"
+                        >
+                    </label>
+                    <div class="row-main muted-label">
+                        {{ $t("imageName") }}
+                    </div>
+                    <div class="row-meta muted-label d-none d-md-block">{{ $t("size") }}</div>
+                    <div class="row-status muted-label d-none d-lg-block">{{ $t("status") }}</div>
+                    <div class="row-actions muted-label">{{ $t("actions") }}</div>
+                </div>
+
+                <div
+                    v-for="img in filteredList"
+                    :key="img.id + img.name + img.tag"
+                    class="image-row"
+                    :class="{ disabled: img.inUsed }"
+                >
+                    <label class="row-check">
+                        <input
+                            v-model="selectedMap[img.id]"
+                            class="form-check-input"
+                            type="checkbox"
+                            :disabled="img.inUsed"
+                            :title="img.inUsed ? $t('imageInUse') : ''"
+                        >
+                    </label>
+                    <div class="row-main">
+                        <div class="title-line">
+                            <span class="name">{{ img.name }}</span>
+                            <span class="tag">:{{ img.tag }}</span>
+                            <span v-if="img.needUpdate" class="badge update-badge ms-2">{{ $t("update") }}</span>
+                        </div>
+                        <div class="sub-line">
+                            <code class="id-chip">{{ img.shortId }}</code>
+                            <span class="sep">·</span>
+                            <span>{{ img.sizeFormat }}</span>
+                            <span v-if="img.createTime" class="sep">·</span>
+                            <span v-if="img.createTime">{{ img.createTime }}</span>
+                        </div>
+                    </div>
+                    <div class="row-meta d-none d-md-block">
+                        {{ img.sizeFormat }}
+                    </div>
+                    <div class="row-status">
+                        <span v-if="img.inUsed" class="status-pill active">{{ $t("inUse") }}</span>
+                        <span v-else-if="img.dangling" class="status-pill dangling">{{ $t("dangling") }}</span>
+                        <span v-else class="status-pill unused">{{ $t("unused") }}</span>
+                    </div>
+                    <div class="row-actions">
+                        <button
+                            class="btn btn-sm btn-normal delete-btn"
+                            :disabled="img.inUsed || loading"
+                            :title="img.inUsed ? $t('imageInUse') : $t('deleteImage')"
+                            @click="confirmRemoveOne(img)"
+                        >
+                            <font-awesome-icon icon="trash" />
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -183,9 +211,6 @@ export default {
         allSelectableSelected() {
             return this.selectableIds.length > 0 && this.selectableIds.every((id) => this.selectedMap[id]);
         },
-        someSelected() {
-            return this.selectableIds.some((id) => this.selectedMap[id]);
-        },
     },
     mounted() {
         this.loadImages();
@@ -204,7 +229,6 @@ export default {
                 if (res.ok) {
                     this.imageList = res.imageList || [];
                     this.checkStatus = res.checkStatus || {};
-                    // Drop selections for gone images
                     const ids = new Set(this.imageList.map((i) => i.id));
                     for (const id of Object.keys(this.selectedMap)) {
                         if (!ids.has(id)) {
@@ -235,8 +259,10 @@ export default {
         },
         confirmRemoveOne(img) {
             this.confirmMessage = this.$t("deleteImageConfirm", [ `${img.name}:${img.tag}` ]);
-            this.pendingAction = { type: "removeOne",
-                id: img.id };
+            this.pendingAction = {
+                type: "removeOne",
+                id: img.id,
+            };
             this.$refs.confirmRemove.show();
         },
         confirmRemoveSelected() {
@@ -296,138 +322,341 @@ export default {
 <style lang="scss" scoped>
 @import "../styles/vars.scss";
 
-.image-list-box {
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.count-pill {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 7px;
+    border-radius: 10px;
+    font-size: 12px;
+    background: rgba(0, 0, 0, 0.08);
+    color: inherit;
+
+    &.danger {
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    .dark & {
+        background: rgba(255, 255, 255, 0.08);
+    }
+}
+
+.meta-line {
+    font-size: 13px;
+    color: $dark-font-color3;
+    margin-left: 0.25rem;
+}
+
+.update-badge {
+    background-color: #f0ad4e;
+    color: #212529;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 6px;
+    vertical-align: middle;
+}
+
+/* StackList-like panel */
+.image-panel {
+    padding: 0;
     overflow: hidden;
 }
 
-/* Base table: transparent so shadow-box theme shows through */
-.image-table {
-    font-size: 14px;
-    --bs-table-bg: transparent;
-    --bs-table-color: inherit;
-    --bs-table-border-color: #dee2e6;
-    --bs-table-striped-bg: transparent;
-    --bs-table-hover-bg: #{$highlight-white};
-    --bs-table-hover-color: inherit;
-    color: inherit;
-    background-color: transparent;
+.list-header {
+    border-bottom: 1px solid #dee2e6;
+    border-radius: 10px 10px 0 0;
+    padding: 10px;
+    margin: 0;
 
-    th,
-    td {
-        white-space: nowrap;
-        border-color: var(--bs-table-border-color);
-        background-color: transparent !important;
-        color: inherit;
-        vertical-align: middle;
-        box-shadow: none !important;
+    .dark & {
+        background-color: $dark-header-bg;
+        border-bottom: 0;
     }
+}
 
-    thead th {
-        border-top: none;
-        border-bottom-width: 1px;
-        font-weight: 600;
-        color: $dark-font-color3;
+.header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+}
+
+.filter-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-size: 13px;
+    color: $dark-font-color3;
+    cursor: pointer;
+    user-select: none;
+
+    .form-check-input {
+        margin: 0;
+        cursor: pointer;
     }
+}
 
-    .mono-chip {
-        font-size: 12px;
-        padding: 2px 6px;
-        border-radius: 4px;
-        background-color: rgba(0, 0, 0, 0.04);
-        color: inherit;
-    }
+.search-wrapper {
+    display: flex;
+    align-items: center;
+}
 
-    .create-time {
+.search-icon {
+    padding: 8px 10px;
+    color: #c0c0c0;
+    cursor: pointer;
+
+    .dark & {
         color: $dark-font-color3;
     }
 }
 
 .search-input {
-    max-width: 20em;
+    max-width: 16em;
+    border-radius: 8px;
 }
 
-.gap-2 {
-    gap: 0.5rem;
+.empty-state {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: $dark-font-color3;
+}
+
+.image-list {
+    max-height: calc(100vh - 280px);
+    overflow-y: auto;
+    padding: 6px 8px 10px;
+}
+
+.image-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 52px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    transition: background-color 0.15s ease-in-out;
+
+    &:not(.select-all-row):hover {
+        background-color: $highlight-white;
+
+        .dark & {
+            background-color: rgba(255, 255, 255, 0.03);
+        }
+    }
+
+    &.select-all-row {
+        min-height: 36px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+        margin-bottom: 2px;
+        border-bottom: 1px solid #dee2e6;
+
+        .dark & {
+            border-bottom-color: $dark-border-color;
+        }
+    }
+
+    &.disabled .name,
+    &.disabled .tag {
+        opacity: 0.85;
+    }
+}
+
+.row-check {
+    flex: 0 0 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    cursor: pointer;
+
+    .form-check-input {
+        margin: 0;
+        cursor: pointer;
+    }
+}
+
+.row-main {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.muted-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: $dark-font-color3;
+    text-transform: none;
+}
+
+.title-line {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px;
+    line-height: 1.3;
+}
+
+.name {
+    font-weight: 500;
+    color: inherit;
+    word-break: break-all;
+}
+
+.tag {
+    color: $dark-font-color3;
+    word-break: break-all;
+}
+
+.sub-line {
+    margin-top: 3px;
+    font-size: 12px;
+    color: $dark-font-color3;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+
+.id-chip {
+    font-size: 11px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.05);
+    color: inherit;
+
+    .dark & {
+        background: $dark-bg2;
+        border: 1px solid $dark-border-color;
+        color: $dark-font-color;
+    }
+}
+
+.sep {
+    opacity: 0.5;
+}
+
+.row-meta {
+    flex: 0 0 88px;
+    font-size: 13px;
+    color: $dark-font-color3;
+    text-align: right;
+}
+
+.row-status {
+    flex: 0 0 88px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.status-pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 20px;
+    line-height: 1.2;
+
+    &.active {
+        background: rgba(76, 175, 80, 0.18);
+        color: #4caf50;
+    }
+
+    &.unused {
+        background: rgba(87, 92, 98, 0.2);
+        color: $dark-font-color3;
+    }
+
+    &.dangling {
+        background: rgba(240, 173, 78, 0.18);
+        color: #c98a1a;
+    }
+}
+
+.row-actions {
+    flex: 0 0 48px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.delete-btn {
+    padding: 4px 10px;
+    border-radius: 8px;
+
+    &:not(:disabled):hover {
+        color: $danger;
+    }
 }
 </style>
 
-<!-- body.dark is outside component; unscoped overrides for Bootstrap table -->
+<!-- Checkbox visibility on dark theme (body.dark is outside scoped root) -->
 <style lang="scss">
 @import "../styles/vars.scss";
 
-.dark .image-table {
-    --bs-table-bg: transparent;
-    --bs-table-color: #{$dark-font-color};
-    --bs-table-border-color: #{$dark-border-color};
-    --bs-table-hover-bg: #{$dark-bg2};
-    --bs-table-hover-color: #{$dark-font-color};
-    --bs-table-striped-bg: transparent;
-    --bs-table-active-bg: #{$dark-bg2};
-    color: $dark-font-color;
-    background-color: transparent;
-
-    thead th {
-        color: $dark-font-color3;
-        border-bottom-color: $dark-border-color;
-        background-color: transparent !important;
-    }
-
-    th,
-    td {
-        border-color: $dark-border-color !important;
-        color: $dark-font-color !important;
-        background-color: transparent !important;
-        box-shadow: none !important;
-        --bs-table-bg-type: transparent;
-        --bs-table-bg-state: transparent;
-    }
-
-    tbody tr:hover > * {
-        --bs-table-accent-bg: #{$dark-bg2};
-        --bs-table-bg-state: #{$dark-bg2};
-        color: $dark-font-color !important;
-        background-color: $dark-bg2 !important;
-    }
-
-    .mono-chip {
-        background-color: $dark-bg2;
-        color: $dark-font-color;
-        border: 1px solid $dark-border-color;
-    }
-
-    .create-time {
-        color: $dark-font-color3 !important;
-    }
-
-    .text-muted {
-        color: $dark-font-color3 !important;
-    }
-
-    /* Unchecked boxes must stay visible on dark rows */
+.dark .images-page {
     .form-check-input {
-        width: 1.15em;
-        height: 1.15em;
-        margin-top: 0.15em;
-        background-color: #161b22;
-        border: 1.5px solid #8b949e;
+        width: 1.1em;
+        height: 1.1em;
+        background-color: #21262d;
+        border: 1.5px solid #b1bac4;
         cursor: pointer;
 
         &:focus {
             border-color: $primary;
-            box-shadow: 0 0 0 0.15rem rgba(116, 194, 255, 0.25);
+            box-shadow: 0 0 0 0.15rem rgba(116, 194, 255, 0.2);
         }
 
         &:checked {
             background-color: $primary;
             border-color: $primary;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23020b05' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
         }
 
         &:disabled {
-            opacity: 0.4;
+            opacity: 0.45;
             cursor: not-allowed;
-            background-color: #0d1117;
-            border-color: #484f58;
+            background-color: #161b22;
+            border-color: #6e7681;
         }
+    }
+
+    .meta-line,
+    .filter-check,
+    .muted-label,
+    .sub-line,
+    .tag,
+    .row-meta {
+        color: $dark-font-color3;
+    }
+
+    .name {
+        color: $dark-font-color;
+    }
+
+    .status-pill.unused {
+        background: rgba(255, 255, 255, 0.06);
+        color: $dark-font-color3;
+    }
+
+    .status-pill.active {
+        background: rgba(134, 230, 169, 0.12);
+        color: #86e6a9;
     }
 }
 </style>
