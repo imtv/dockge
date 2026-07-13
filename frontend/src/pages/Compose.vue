@@ -257,9 +257,9 @@
 import CodeMirror from "vue-codemirror6";
 import { yaml } from "@codemirror/lang-yaml";
 import { python } from "@codemirror/lang-python";
-import { dracula as editorTheme } from "thememirror";
 import { lineNumbers, EditorView } from "@codemirror/view";
 import { parseDocument, Document } from "yaml";
+import { dockgeEditorAppearance } from "../utils/editor-appearance";
 
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import {
@@ -313,29 +313,17 @@ export default {
             return null;
         };
 
-        // Suppress CM default focus outline (avoids white/dotted flash on click)
-        const noFocusOutline = EditorView.theme({
-            "&.cm-focused": {
-                outline: "none",
-            },
-            ".cm-content": {
-                outline: "none",
-            },
-        });
-
         const extensions = [
-            editorTheme,
+            ...dockgeEditorAppearance,
             yaml(),
             lineNumbers(),
-            noFocusOutline,
             EditorView.focusChangeEffect.of(focusEffectHandler)
         ];
 
         const extensionsEnv = [
-            editorTheme,
+            ...dockgeEditorAppearance,
             python(),
             lineNumbers(),
-            noFocusOutline,
             EditorView.focusChangeEffect.of(focusEffectHandler)
         ];
 
@@ -886,8 +874,20 @@ export default {
 }
 
 .editor-box {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 15.5px;
+    /* Original Dracula-like panel (not pure black page bg) */
+    background-color: #2d2f3f !important;
+    overflow: hidden;
+
+    /* Ensure CM inherits mono font even if theme load order differs */
+    :deep(.cm-editor),
+    :deep(.cm-content),
+    :deep(.cm-scroller) {
+        font-family: inherit;
+        font-size: inherit;
+        background-color: #2d2f3f;
+    }
 }
 
 .agent-name {

@@ -674,18 +674,9 @@ code {
 }
 
 
-.cm-gutters {
-	background-color: transparent !important;
-}
-.dark [contenteditable="true"] {
-	background-color: transparent !important;
-}
+/* Editor panel uses soft blue-gray (#2d2f3f) via theme — do not force transparent/black */
 .cm-editor {
-	background-color: transparent !important;
     outline: none !important;
-}
-.cm-activeLine, .cm-activeLineGutter {
-	background-color: transparent !important;
 }
 .cm-selectionBackground {
     background-color: #74c2ff3d !important;

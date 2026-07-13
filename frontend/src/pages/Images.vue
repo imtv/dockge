@@ -402,5 +402,32 @@ export default {
     .text-muted {
         color: $dark-font-color3 !important;
     }
+
+    /* Unchecked boxes must stay visible on dark rows */
+    .form-check-input {
+        width: 1.15em;
+        height: 1.15em;
+        margin-top: 0.15em;
+        background-color: #161b22;
+        border: 1.5px solid #8b949e;
+        cursor: pointer;
+
+        &:focus {
+            border-color: $primary;
+            box-shadow: 0 0 0 0.15rem rgba(116, 194, 255, 0.25);
+        }
+
+        &:checked {
+            background-color: $primary;
+            border-color: $primary;
+        }
+
+        &:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background-color: #0d1117;
+            border-color: #484f58;
+        }
+    }
 }
 </style>

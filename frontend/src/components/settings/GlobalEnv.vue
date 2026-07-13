@@ -32,9 +32,9 @@
 <script>
 import CodeMirror from "vue-codemirror6";
 import { python } from "@codemirror/lang-python"; // good enough for .env key=value highlighting
-import { dracula as editorTheme } from "thememirror";
 import { lineNumbers, EditorView } from "@codemirror/view";
 import { ref } from "vue";
+import { dockgeEditorAppearance } from "../../utils/editor-appearance";
 
 export default {
     name: "GlobalEnv",
@@ -50,20 +50,10 @@ export default {
             return null;
         };
 
-        const noFocusOutline = EditorView.theme({
-            "&.cm-focused": {
-                outline: "none",
-            },
-            ".cm-content": {
-                outline: "none",
-            },
-        });
-
         const extensionsEnv = [
-            editorTheme,
+            ...dockgeEditorAppearance,
             python(),
             lineNumbers(),
-            noFocusOutline,
             EditorView.focusChangeEffect.of(focusEffectHandler),
         ];
 
@@ -98,11 +88,21 @@ export default {
 
 <style scoped lang="scss">
 .editor-box {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 15.5px;
+    background-color: #2d2f3f !important;
+    overflow: hidden;
 
     &.edit-mode {
-        background-color: #2c2f38 !important;
+        background-color: #2d2f3f !important;
+    }
+
+    :deep(.cm-editor),
+    :deep(.cm-content),
+    :deep(.cm-scroller) {
+        font-family: inherit;
+        font-size: inherit;
+        background-color: #2d2f3f;
     }
 }
 </style>
