@@ -88,27 +88,52 @@ export default {
 
 <style scoped lang="scss">
 .editor-box {
-    background-color: #2d2f3f !important;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 14px;
+    line-height: 1.5;
     overflow: hidden;
+    background-color: #0d1117;
 
     &.edit-mode {
-        background-color: #2d2f3f !important;
+        background-color: #161b22;
     }
 
     :deep(.cm-editor),
     :deep(.cm-scroller),
-    :deep(.cm-content) {
-        background-color: #2d2f3f !important;
-    }
-
+    :deep(.cm-content),
     :deep(.cm-gutters),
-    :deep(.cm-gutter) {
-        background-color: #282a36 !important;
-    }
-
+    :deep(.cm-gutter),
+    :deep(.cm-gutterElement),
+    :deep(.cm-line),
     :deep(.cm-activeLine),
     :deep(.cm-activeLineGutter) {
         background-color: transparent !important;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
+    }
+
+    :deep(.cm-gutters) {
+        border: none !important;
+    }
+
+    :deep(.cm-content),
+    :deep(.cm-line),
+    :deep(.cm-lineNumbers .cm-gutterElement) {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+    }
+
+    :deep(.cm-lineNumbers .cm-gutterElement) {
+        padding-left: 4px !important;
+        padding-right: 8px !important;
+        min-width: 2.5ch;
+        text-align: right;
+    }
+
+    :deep(.cm-content) {
+        padding-left: 6px !important;
+        padding-right: 4px !important;
     }
 }
 </style>

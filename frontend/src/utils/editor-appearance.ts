@@ -1,27 +1,31 @@
 /**
  * Shared CodeMirror appearance for Dockge editors (compose / .env).
  *
- * Alignment: no vertical padding on gutters (keeps line numbers locked to text).
- * Background: always solid panel color — kill CM light active-line flash on focus/edit.
+ * Background / gutter chrome is handled in CSS (.editor-box) so:
+ * - gutters stay transparent (no “square” number column)
+ * - view mode vs edit-mode can use different panel colors (original Dockge feel)
+ *
+ * This theme only sets font metrics (alignment) + muted syntax colors.
  */
 import { EditorView } from "@codemirror/view";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import type { Extension } from "@codemirror/state";
 
-const EDITOR_BG = "#2d2f3f";
-const EDITOR_GUTTER_BG = "#282a36";
-const FONT_SIZE = "15px";
+/** Match upstream Compose.vue: JetBrains Mono 14px */
+const FONT_SIZE = "14px";
 const LINE_HEIGHT = "1.5";
-const FONT_FAMILY =
-    "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace";
+const FONT_FAMILY = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
 
+/**
+ * Identical font metrics on content and line numbers — no vertical gutter padding
+ * (padding-top on gutters is the usual cause of “some lines misaligned”).
+ */
 export const softEditorChrome: Extension = EditorView.theme({
     "&": {
-        color: "#a8b0bd",
-        backgroundColor: EDITOR_BG,
         fontSize: FONT_SIZE,
         fontFamily: FONT_FAMILY,
+        backgroundColor: "transparent",
     },
     "&.cm-focused": {
         outline: "none",
@@ -30,26 +34,28 @@ export const softEditorChrome: Extension = EditorView.theme({
         fontFamily: FONT_FAMILY,
         fontSize: FONT_SIZE,
         lineHeight: LINE_HEIGHT,
-        backgroundColor: EDITOR_BG,
+        backgroundColor: "transparent",
     },
     ".cm-content": {
         fontFamily: FONT_FAMILY,
         fontSize: FONT_SIZE,
         lineHeight: LINE_HEIGHT,
-        caretColor: "#a8b0bd",
+        caretColor: "#b1b8c0",
         outline: "none",
-        backgroundColor: EDITOR_BG,
-        paddingLeft: "8px",
-        paddingRight: "8px",
+        backgroundColor: "transparent",
+        /* small gap after line numbers; no vertical pad */
+        paddingLeft: "6px",
+        paddingRight: "4px",
+        paddingTop: "0",
+        paddingBottom: "0",
     },
     ".cm-line": {
         fontFamily: FONT_FAMILY,
         fontSize: FONT_SIZE,
         lineHeight: LINE_HEIGHT,
-        padding: "0 1px 0 0",
+        padding: "0",
         backgroundColor: "transparent",
     },
-    /* CM base light active-line (#cceeff / #99eeff) looks “white” on dark panel — remove */
     ".cm-activeLine": {
         backgroundColor: "transparent",
     },
@@ -57,40 +63,39 @@ export const softEditorChrome: Extension = EditorView.theme({
         backgroundColor: "transparent",
     },
     ".cm-gutters": {
-        backgroundColor: EDITOR_GUTTER_BG,
-        color: "#7a8494",
+        backgroundColor: "transparent",
+        color: "#575c62",
         border: "none",
-        borderRight: "1px solid rgba(255, 255, 255, 0.06)",
         fontFamily: FONT_FAMILY,
         fontSize: FONT_SIZE,
         lineHeight: LINE_HEIGHT,
+        paddingTop: "0",
+        paddingBottom: "0",
     },
     ".cm-gutter": {
+        backgroundColor: "transparent",
         fontFamily: FONT_FAMILY,
         fontSize: FONT_SIZE,
         lineHeight: LINE_HEIGHT,
-        backgroundColor: EDITOR_GUTTER_BG,
     },
     ".cm-lineNumbers .cm-gutterElement": {
         fontFamily: FONT_FAMILY,
         fontSize: FONT_SIZE,
         lineHeight: LINE_HEIGHT,
-        minWidth: "3ch",
-        padding: "0 10px 0 8px",
+        minWidth: "2.5ch",
+        padding: "0 8px 0 4px",
         textAlign: "right",
         boxSizing: "border-box",
         backgroundColor: "transparent",
     },
     ".cm-activeLineGutter": {
         backgroundColor: "transparent",
-        color: "#a8b0bd",
+        color: "#b1b8c0",
     },
     "&.cm-focused .cm-activeLineGutter": {
         backgroundColor: "transparent",
-        color: "#a8b0bd",
     },
-    /* Selection: soft blue, not white wash */
-    ".cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection": {
+    ".cm-selectionBackground, &.cm-focused .cm-selectionBackground": {
         backgroundColor: "rgba(116, 194, 255, 0.22) !important",
     },
     ".cm-selectionLayer .cm-selectionBackground": {
@@ -98,12 +103,13 @@ export const softEditorChrome: Extension = EditorView.theme({
     },
 }, { dark: true });
 
+/** Soft syntax (readable on both slightly lighter edit panel and dark view panel) */
 export const softEditorHighlight: Extension = syntaxHighlighting(HighlightStyle.define([
-    { tag: t.comment, color: "#5c6a8a" },
-    { tag: [ t.string, t.special(t.brace) ], color: "#a8ad72" },
-    { tag: [ t.number, t.self, t.bool, t.null ], color: "#9580b8" },
-    { tag: [ t.keyword, t.operator ], color: "#b875a0" },
-    { tag: [ t.definitionKeyword, t.typeName ], color: "#6a9eac" },
+    { tag: t.comment, color: "#6a7380" },
+    { tag: [ t.string, t.special(t.brace) ], color: "#a3b06a" },
+    { tag: [ t.number, t.self, t.bool, t.null ], color: "#9b86c0" },
+    { tag: [ t.keyword, t.operator ], color: "#c07a9e" },
+    { tag: [ t.definitionKeyword, t.typeName ], color: "#6ea0ad" },
     {
         tag: [
             t.propertyName,
@@ -112,10 +118,10 @@ export const softEditorHighlight: Extension = syntaxHighlighting(HighlightStyle.
             t.className,
             t.function(t.variableName),
         ],
-        color: "#6aad80",
+        color: "#6db384",
     },
-    { tag: t.variableName, color: "#9aa3b0" },
-    { tag: t.meta, color: "#6e7785" },
+    { tag: t.variableName, color: "#b1b8c0" },
+    { tag: t.meta, color: "#6a7380" },
 ]));
 
 export const dockgeEditorAppearance: Extension[] = [

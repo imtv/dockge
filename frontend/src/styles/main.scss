@@ -674,14 +674,24 @@ code {
 }
 
 
-/* Editor panel uses soft blue-gray (#2d2f3f) via theme — do not force transparent/black */
+/* Original Dockge: transparent CM chrome so panel bg shows through; no gutter slab */
+.cm-gutters {
+    background-color: transparent !important;
+}
+.dark [contenteditable="true"] {
+    background-color: transparent !important;
+}
 .cm-editor {
+    background-color: transparent !important;
     outline: none !important;
+}
+.cm-activeLine,
+.cm-activeLineGutter {
+    background-color: transparent !important;
 }
 .cm-selectionBackground {
     background-color: #74c2ff3d !important;
 }
-/* Kill CodeMirror default focus outline (dotted/white flash on click) */
 .cm-focused,
 .cm-editor.cm-focused,
 .vue-codemirror:focus,
