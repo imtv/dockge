@@ -88,9 +88,9 @@ export default {
 
 <style scoped lang="scss">
 .editor-box {
-    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    /* Same as upstream Compose.vue */
+    font-family: "JetBrains Mono", monospace;
     font-size: 14px;
-    line-height: 1.5;
     overflow: hidden;
     background-color: #0d1117;
 
@@ -108,20 +108,12 @@ export default {
     :deep(.cm-activeLine),
     :deep(.cm-activeLineGutter) {
         background-color: transparent !important;
-        font-family: inherit;
-        font-size: inherit;
-        line-height: inherit;
+        font-family: inherit !important;
+        font-size: inherit !important;
     }
 
     :deep(.cm-gutters) {
         border: none !important;
-    }
-
-    :deep(.cm-content),
-    :deep(.cm-line),
-    :deep(.cm-lineNumbers .cm-gutterElement) {
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
     }
 
     :deep(.cm-lineNumbers .cm-gutterElement) {

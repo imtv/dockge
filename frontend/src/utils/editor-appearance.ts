@@ -12,10 +12,11 @@ import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import type { Extension } from "@codemirror/state";
 
-/** Match upstream Compose.vue: JetBrains Mono 14px */
-const FONT_SIZE = "14px";
-const LINE_HEIGHT = "1.5";
-const FONT_FAMILY = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+/**
+ * Font size comes from .editor-box in CSS (upstream: 14px JetBrains Mono).
+ * Theme only uses inherit so numbers and text stay on the same metrics.
+ */
+const FONT_FAMILY = "inherit";
 
 /**
  * Identical font metrics on content and line numbers — no vertical gutter padding
@@ -23,7 +24,7 @@ const FONT_FAMILY = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Mona
  */
 export const softEditorChrome: Extension = EditorView.theme({
     "&": {
-        fontSize: FONT_SIZE,
+        fontSize: "inherit",
         fontFamily: FONT_FAMILY,
         backgroundColor: "transparent",
     },
@@ -32,14 +33,14 @@ export const softEditorChrome: Extension = EditorView.theme({
     },
     ".cm-scroller": {
         fontFamily: FONT_FAMILY,
-        fontSize: FONT_SIZE,
-        lineHeight: LINE_HEIGHT,
+        fontSize: "inherit",
+        lineHeight: "inherit",
         backgroundColor: "transparent",
     },
     ".cm-content": {
         fontFamily: FONT_FAMILY,
-        fontSize: FONT_SIZE,
-        lineHeight: LINE_HEIGHT,
+        fontSize: "inherit",
+        lineHeight: "inherit",
         caretColor: "#b1b8c0",
         outline: "none",
         backgroundColor: "transparent",
@@ -51,8 +52,8 @@ export const softEditorChrome: Extension = EditorView.theme({
     },
     ".cm-line": {
         fontFamily: FONT_FAMILY,
-        fontSize: FONT_SIZE,
-        lineHeight: LINE_HEIGHT,
+        fontSize: "inherit",
+        lineHeight: "inherit",
         padding: "0",
         backgroundColor: "transparent",
     },
@@ -67,21 +68,21 @@ export const softEditorChrome: Extension = EditorView.theme({
         color: "#575c62",
         border: "none",
         fontFamily: FONT_FAMILY,
-        fontSize: FONT_SIZE,
-        lineHeight: LINE_HEIGHT,
+        fontSize: "inherit",
+        lineHeight: "inherit",
         paddingTop: "0",
         paddingBottom: "0",
     },
     ".cm-gutter": {
         backgroundColor: "transparent",
         fontFamily: FONT_FAMILY,
-        fontSize: FONT_SIZE,
-        lineHeight: LINE_HEIGHT,
+        fontSize: "inherit",
+        lineHeight: "inherit",
     },
     ".cm-lineNumbers .cm-gutterElement": {
         fontFamily: FONT_FAMILY,
-        fontSize: FONT_SIZE,
-        lineHeight: LINE_HEIGHT,
+        fontSize: "inherit",
+        lineHeight: "inherit",
         minWidth: "2.5ch",
         padding: "0 8px 0 4px",
         textAlign: "right",

@@ -879,9 +879,9 @@ export default {
  * Gutters transparent — no solid “number column” block.
  */
 .editor-box {
-    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    /* Upstream Dockge: JetBrains Mono 14px only */
+    font-family: "JetBrains Mono", monospace;
     font-size: 14px;
-    line-height: 1.5;
     overflow: hidden;
     /* view / after save — darker (matches .dark .shadow-box $dark-bg) */
     background-color: #0d1117;
@@ -911,16 +911,8 @@ export default {
     :deep(.cm-activeLine),
     :deep(.cm-activeLineGutter) {
         background-color: transparent !important;
-        font-family: inherit;
-        font-size: inherit;
-        line-height: inherit;
-    }
-
-    :deep(.cm-content),
-    :deep(.cm-line),
-    :deep(.cm-lineNumbers .cm-gutterElement) {
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
+        font-family: inherit !important;
+        font-size: inherit !important;
     }
 
     :deep(.cm-gutters) {
