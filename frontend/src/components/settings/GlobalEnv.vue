@@ -88,8 +88,6 @@ export default {
 
 <style scoped lang="scss">
 .editor-box {
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 15.5px;
     background-color: #2d2f3f !important;
     overflow: hidden;
 
@@ -98,11 +96,19 @@ export default {
     }
 
     :deep(.cm-editor),
-    :deep(.cm-content),
-    :deep(.cm-scroller) {
-        font-family: inherit;
-        font-size: inherit;
-        background-color: #2d2f3f;
+    :deep(.cm-scroller),
+    :deep(.cm-content) {
+        background-color: #2d2f3f !important;
+    }
+
+    :deep(.cm-gutters),
+    :deep(.cm-gutter) {
+        background-color: #282a36 !important;
+    }
+
+    :deep(.cm-activeLine),
+    :deep(.cm-activeLineGutter) {
+        background-color: transparent !important;
     }
 }
 </style>

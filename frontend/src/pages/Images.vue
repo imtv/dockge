@@ -47,9 +47,12 @@
         <div class="shadow-box image-panel mb-3">
             <div class="list-header">
                 <div class="header-top">
-                    <div class="filters">
-                        <label class="filter-check">
-                            <input v-model="filterUnusedOnly" class="form-check-input" type="checkbox">
+                    <!-- Same left padding + 28px check column as image-row -->
+                    <div class="filters image-row-align">
+                        <label class="filter-check filter-check-primary">
+                            <span class="row-check">
+                                <input v-model="filterUnusedOnly" class="form-check-input" type="checkbox">
+                            </span>
                             <span>{{ $t("unusedOnly") }}</span>
                         </label>
                         <label class="filter-check">
@@ -61,15 +64,17 @@
                         <a v-if="searchText === ''" class="search-icon">
                             <font-awesome-icon icon="search" />
                         </a>
-                        <a v-else class="search-icon" @click="searchText = ''">
+                        <a v-else class="search-icon" style="cursor: pointer" @click="searchText = ''">
                             <font-awesome-icon icon="times" />
                         </a>
-                        <input
-                            v-model="searchText"
-                            class="form-control search-input"
-                            autocomplete="off"
-                            :placeholder="$t('searchImages')"
-                        >
+                        <form @submit.prevent>
+                            <input
+                                v-model="searchText"
+                                class="form-control search-input"
+                                autocomplete="off"
+                                :placeholder="$t('searchImages')"
+                            >
+                        </form>
                     </div>
                 </div>
             </div>
@@ -81,7 +86,7 @@
                 {{ $t("noImages") }}
             </div>
             <div v-else class="image-list">
-                <!-- Select-all row -->
+                <!-- Select-all / column headers -->
                 <div class="image-row select-all-row">
                     <label class="row-check">
                         <input
@@ -94,8 +99,10 @@
                     <div class="row-main muted-label">
                         {{ $t("imageName") }}
                     </div>
-                    <div class="row-meta muted-label d-none d-md-block">{{ $t("size") }}</div>
-                    <div class="row-status muted-label d-none d-lg-block">{{ $t("status") }}</div>
+                    <div class="row-id muted-label">{{ $t("imageId") }}</div>
+                    <div class="row-meta muted-label">{{ $t("size") }}</div>
+                    <div class="row-created muted-label">{{ $t("created") }}</div>
+                    <div class="row-status muted-label">{{ $t("status") }}</div>
                     <div class="row-actions muted-label">{{ $t("actions") }}</div>
                 </div>
 
@@ -120,16 +127,32 @@
                             <span class="tag">:{{ img.tag }}</span>
                             <span v-if="img.needUpdate" class="badge update-badge ms-2">{{ $t("update") }}</span>
                         </div>
-                        <div class="sub-line">
-                            <code class="id-chip">{{ img.shortId }}</code>
-                            <span class="sep">·</span>
-                            <span>{{ img.sizeFormat }}</span>
-                            <span v-if="img.createTime" class="sep">·</span>
-                            <span v-if="img.createTime">{{ img.createTime }}</span>
+                        <!-- Mobile: meta under name (no fixed-width side columns) -->
+                        <div class="mobile-meta">
+                            <span class="mobile-meta-item">{{ img.sizeFormat }}</span>
+                            <span class="mobile-meta-item id-chip">{{ img.shortId }}</span>
+                            <span
+                                v-if="img.inUsed"
+                                class="status-pill active"
+                            >{{ $t("inUse") }}</span>
+                            <span
+                                v-else-if="img.dangling"
+                                class="status-pill dangling"
+                            >{{ $t("dangling") }}</span>
+                            <span
+                                v-else
+                                class="status-pill unused"
+                            >{{ $t("unused") }}</span>
                         </div>
                     </div>
-                    <div class="row-meta d-none d-md-block">
+                    <div class="row-id">
+                        <code class="id-chip">{{ img.shortId }}</code>
+                    </div>
+                    <div class="row-meta">
                         {{ img.sizeFormat }}
+                    </div>
+                    <div class="row-created">
+                        {{ img.createTime || "—" }}
                     </div>
                     <div class="row-status">
                         <span v-if="img.inUsed" class="status-pill active">{{ $t("inUse") }}</span>
@@ -372,7 +395,8 @@ export default {
 .list-header {
     border-bottom: 1px solid #dee2e6;
     border-radius: 10px 10px 0 0;
-    padding: 10px;
+    /* Horizontal padding matches .image-list so filter checkbox lines up with rows */
+    padding: 10px 8px;
     margin: 0;
 
     .dark & {
@@ -389,11 +413,14 @@ export default {
     flex-wrap: wrap;
 }
 
-.filters {
+/* Same left padding as .image-row so first checkbox column aligns */
+.filters.image-row-align {
     display: flex;
     flex-wrap: wrap;
-    gap: 14px;
     align-items: center;
+    gap: 14px;
+    padding-left: 10px;
+    min-width: 0;
 }
 
 .filter-check {
@@ -410,26 +437,40 @@ export default {
         margin: 0;
         cursor: pointer;
     }
+
+    /* Primary filter reuses .row-check (28px) so it lines up with list checkboxes */
+    &.filter-check-primary {
+        gap: 6px;
+
+        .row-check {
+            flex: 0 0 28px;
+        }
+    }
 }
 
+/* Match StackList search chrome */
 .search-wrapper {
     display: flex;
     align-items: center;
 }
 
 .search-icon {
-    padding: 8px 10px;
+    padding: 10px;
     color: #c0c0c0;
-    cursor: pointer;
 
-    .dark & {
-        color: $dark-font-color3;
+    svg[data-icon="times"] {
+        cursor: pointer;
+        transition: all ease-in-out 0.1s;
+
+        &:hover {
+            opacity: 0.5;
+        }
     }
 }
 
 .search-input {
-    max-width: 16em;
-    border-radius: 8px;
+    max-width: 15em;
+    /* Same as StackList: inherit form-control radius (no extra 8px override) */
 }
 
 .empty-state {
@@ -445,13 +486,74 @@ export default {
 }
 
 .image-row {
-    display: flex;
+    /*
+     * Fluid columns only (fr + minmax(0,…)) — no fixed px side columns.
+     * Breakpoints control how many tracks exist so hidden cols don’t crush mobile.
+     */
+    display: grid;
     align-items: center;
-    gap: 10px;
+    column-gap: 0.5rem;
+    row-gap: 0;
     min-height: 52px;
-    padding: 8px 10px;
+    padding: 8px 6px;
     border-radius: 10px;
     transition: background-color 0.15s ease-in-out;
+
+    /* phone: check | name(+meta) | actions */
+    grid-template-columns: 1.75rem minmax(0, 1fr) 2.25rem;
+
+    .row-id,
+    .row-meta,
+    .row-created,
+    .row-status {
+        display: none;
+    }
+
+    .mobile-meta {
+        display: flex;
+    }
+
+    .select-all-row .mobile-meta {
+        display: none;
+    }
+
+    /* tablet: check | name | id | size | actions */
+    @media (min-width: 768px) {
+        grid-template-columns:
+            1.75rem
+            minmax(0, 2.4fr)
+            minmax(0, 0.9fr)
+            minmax(0, 0.75fr)
+            2.25rem;
+        padding: 8px 10px;
+        column-gap: 0.65rem;
+
+        .row-id,
+        .row-meta {
+            display: flex;
+        }
+
+        .mobile-meta {
+            display: none;
+        }
+    }
+
+    /* desktop: + created + status; name ~ half of free, rest shared */
+    @media (min-width: 992px) {
+        grid-template-columns:
+            1.75rem
+            minmax(0, 2.2fr)
+            minmax(0, 0.75fr)
+            minmax(0, 0.6fr)
+            minmax(0, 1fr)
+            minmax(0, 0.75fr)
+            2.25rem;
+
+        .row-created,
+        .row-status {
+            display: flex;
+        }
+    }
 
     &:not(.select-all-row):hover {
         background-color: $highlight-white;
@@ -471,6 +573,16 @@ export default {
         .dark & {
             border-bottom-color: $dark-border-color;
         }
+
+        /* header: hide labels for columns not in current breakpoint grid */
+        @media (max-width: 767.98px) {
+            .row-id,
+            .row-meta,
+            .row-created,
+            .row-status {
+                display: none;
+            }
+        }
     }
 
     &.disabled .name,
@@ -480,7 +592,6 @@ export default {
 }
 
 .row-check {
-    flex: 0 0 28px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -494,7 +605,6 @@ export default {
 }
 
 .row-main {
-    flex: 1 1 auto;
     min-width: 0;
 }
 
@@ -510,11 +620,25 @@ export default {
     align-items: center;
     flex-wrap: wrap;
     gap: 2px;
+    min-width: 0;
     line-height: 1.3;
 }
 
+.mobile-meta {
+    display: none;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 12px;
+    color: $dark-font-color3;
+}
+
+.mobile-meta-item {
+    opacity: 0.9;
+}
+
 .name {
-    font-weight: 500;
     color: inherit;
     word-break: break-all;
 }
@@ -522,16 +646,6 @@ export default {
 .tag {
     color: $dark-font-color3;
     word-break: break-all;
-}
-
-.sub-line {
-    margin-top: 3px;
-    font-size: 12px;
-    color: $dark-font-color3;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
 }
 
 .id-chip {
@@ -548,21 +662,37 @@ export default {
     }
 }
 
-.sep {
-    opacity: 0.5;
+.row-id,
+.row-meta,
+.row-created,
+.row-status,
+.row-actions {
+    min-width: 0;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.row-actions {
+    display: flex;
+}
+
+.row-id {
+    font-size: 12px;
+    color: $dark-font-color3;
 }
 
 .row-meta {
-    flex: 0 0 88px;
     font-size: 13px;
     color: $dark-font-color3;
-    text-align: right;
 }
 
-.row-status {
-    flex: 0 0 88px;
-    display: flex;
-    justify-content: flex-end;
+.row-created {
+    font-size: 12px;
+    color: $dark-font-color3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .status-pill {
@@ -572,6 +702,10 @@ export default {
     padding: 3px 8px;
     border-radius: 20px;
     line-height: 1.2;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 
     &.active {
         background: rgba(76, 175, 80, 0.18);
@@ -589,14 +723,8 @@ export default {
     }
 }
 
-.row-actions {
-    flex: 0 0 48px;
-    display: flex;
-    justify-content: flex-end;
-}
-
 .delete-btn {
-    padding: 4px 10px;
+    padding: 4px 8px;
     border-radius: 8px;
 
     &:not(:disabled):hover {
@@ -639,14 +767,16 @@ export default {
     .meta-line,
     .filter-check,
     .muted-label,
-    .sub-line,
     .tag,
-    .row-meta {
+    .row-meta,
+    .row-created,
+    .row-id {
         color: $dark-font-color3;
     }
 
+    /* Stack list titles use default link/body color */
     .name {
-        color: $dark-font-color;
+        color: inherit;
     }
 
     .status-pill.unused {

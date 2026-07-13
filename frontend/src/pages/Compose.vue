@@ -874,34 +874,24 @@ export default {
 }
 
 .editor-box {
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 15.5px;
-    line-height: 1.55;
-    /* Original Dracula-like panel (not pure black page bg) */
     background-color: #2d2f3f !important;
     overflow: hidden;
 
-    /* Same metrics for content + line numbers (keeps rows aligned) */
     :deep(.cm-editor),
-    :deep(.cm-content),
     :deep(.cm-scroller),
+    :deep(.cm-content) {
+        background-color: #2d2f3f !important;
+    }
+
     :deep(.cm-gutters),
-    :deep(.cm-gutter),
-    :deep(.cm-line),
-    :deep(.cm-gutterElement) {
-        font-family: inherit;
-        font-size: inherit;
-        line-height: inherit;
+    :deep(.cm-gutter) {
+        background-color: #282a36 !important;
     }
 
-    :deep(.cm-editor),
-    :deep(.cm-content),
-    :deep(.cm-scroller) {
-        background-color: #2d2f3f;
-    }
-
-    :deep(.cm-gutters) {
-        background-color: #282a36;
+    /* Kill whitish active-line layer when entering edit/focus */
+    :deep(.cm-activeLine),
+    :deep(.cm-activeLineGutter) {
+        background-color: transparent !important;
     }
 }
 
