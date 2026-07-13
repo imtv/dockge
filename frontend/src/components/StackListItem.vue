@@ -3,6 +3,12 @@
         <Uptime :stack="stack" :fixed-width="true" class="me-2" />
         <div class="title">
             <span>{{ stackName }}</span>
+            <!-- imtv: image update available -->
+            <span
+                v-if="stack.hasUpdate"
+                class="badge update-badge ms-2"
+                :title="$t('imageUpdateAvailable')"
+            >{{ $t("update") }}</span>
         </div>
     </router-link>
 </template>
@@ -148,6 +154,20 @@ export default {
     }
     .title {
         margin-top: -4px;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 2px;
+    }
+    .update-badge {
+        background-color: #f0ad4e;
+        color: #212529;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 6px;
+        line-height: 1.2;
+        vertical-align: middle;
     }
     .endpoint {
         font-size: 12px;

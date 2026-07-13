@@ -3,6 +3,8 @@ import { DockgeServer } from "../dockge-server";
 import { callbackError, callbackResult, checkLogin, DockgeSocket, ValidationError } from "../util-server";
 import { Stack } from "../stack";
 import { AgentSocket } from "../../common/agent-socket";
+import { imageManager } from "../image-manager";
+import { imageUpdateChecker } from "../image-update-checker";
 
 export class DockerSocketHandler extends AgentSocketHandler {
     create(socket : DockgeSocket, server : DockgeServer, agentSocket : AgentSocket) {
@@ -187,6 +189,9 @@ export class DockerSocketHandler extends AgentSocketHandler {
 
                 const stack = await Stack.getStack(server, stackName);
                 await stack.update(socket);
+                imageUpdateChecker.clearStackUpdate(stackName);
+                // Refresh digest status after pull (async, non-blocking)
+                imageUpdateChecker.checkAll(true).then(() => server.sendStackList()).catch(() => {});
                 callbackResult({
                     ok: true,
                     msg: "Updated",
@@ -326,6 +331,104 @@ export class DockerSocketHandler extends AgentSocketHandler {
                 callbackResult({
                     ok: true,
                     dockerNetworkList,
+                }, callback);
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        });
+
+        // ---- Image management & update check (imtv) ----
+
+        agentSocket.on("getImageList", async (callback) => {
+            try {
+                checkLogin(socket);
+                const imageList = await imageManager.listImages();
+                callbackResult({
+                    ok: true,
+                    imageList,
+                    checkStatus: imageUpdateChecker.getStatus(),
+                }, callback);
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        });
+
+        agentSocket.on("removeImage", async (imageId: unknown, force: unknown, callback) => {
+            try {
+                checkLogin(socket);
+                if (typeof imageId !== "string") {
+                    throw new ValidationError("Image id must be a string");
+                }
+                await imageManager.removeImage(imageId, force === true);
+                callbackResult({
+                    ok: true,
+                    msg: "Image removed",
+                    msgi18n: true,
+                }, callback);
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        });
+
+        agentSocket.on("removeImages", async (imageIds: unknown, force: unknown, callback) => {
+            try {
+                checkLogin(socket);
+                if (!Array.isArray(imageIds) || !imageIds.every((id) => typeof id === "string")) {
+                    throw new ValidationError("imageIds must be an array of strings");
+                }
+                const result = await imageManager.removeImages(imageIds as string[], force === true);
+                callbackResult({
+                    ok: true,
+                    msg: "Images removed",
+                    msgi18n: true,
+                    ...result,
+                }, callback);
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        });
+
+        agentSocket.on("pruneImages", async (danglingOnly: unknown, callback) => {
+            try {
+                checkLogin(socket);
+                const output = await imageManager.pruneImages({
+                    danglingOnly: danglingOnly === true,
+                    forceUnused: danglingOnly !== true,
+                });
+                callbackResult({
+                    ok: true,
+                    msg: "Pruned",
+                    msgi18n: true,
+                    output,
+                }, callback);
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        });
+
+        agentSocket.on("checkImageUpdates", async (callback) => {
+            try {
+                checkLogin(socket);
+                // Run in background-friendly way: await full check so client gets result
+                await imageUpdateChecker.checkAll(true);
+                server.sendStackList();
+                callbackResult({
+                    ok: true,
+                    msg: "Update check completed",
+                    msgi18n: true,
+                    checkStatus: imageUpdateChecker.getStatus(),
+                }, callback);
+            } catch (e) {
+                callbackError(e, callback);
+            }
+        });
+
+        agentSocket.on("getImageUpdateStatus", async (callback) => {
+            try {
+                checkLogin(socket);
+                callbackResult({
+                    ok: true,
+                    checkStatus: imageUpdateChecker.getStatus(),
                 }, callback);
             } catch (e) {
                 callbackError(e, callback);

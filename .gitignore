@@ -10,3 +10,8 @@ tmp
 # Git only
 frontend-dist
 
+
+# local secrets / scratch
+temp.md
+*.token
+

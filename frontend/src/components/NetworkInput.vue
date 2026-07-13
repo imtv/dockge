@@ -175,16 +175,28 @@ export default {
                 return;
             }
 
-            this.jsonConfig.networks = {};
+            const networks = {};
 
-            // Internal networks
+            // Internal networks (skip empty names)
             for (const networkRow of this.networkList) {
-                this.jsonConfig.networks[networkRow.key] = networkRow.value;
+                if (!networkRow.key) {
+                    continue;
+                }
+                networks[networkRow.key] = networkRow.value;
             }
 
             // External networks
             for (const networkName in this.externalList) {
-                this.jsonConfig.networks[networkName] = this.externalList[networkName];
+                networks[networkName] = this.externalList[networkName];
+            }
+
+            // Do not write empty `networks: {}` into compose YAML
+            if (Object.keys(networks).length === 0) {
+                if (this.jsonConfig.networks !== undefined) {
+                    delete this.jsonConfig.networks;
+                }
+            } else {
+                this.jsonConfig.networks = networks;
             }
 
             console.debug("applyToYAML", this.jsonConfig.networks);

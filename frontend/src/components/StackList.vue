@@ -10,6 +10,17 @@
                     {{ $t("Select") }}
                 </button>
 
+                <!-- imtv: check registry digests for stack image updates -->
+                <button
+                    class="btn btn-outline-normal btn-sm check-update-btn"
+                    type="button"
+                    :disabled="checkingUpdates"
+                    :title="$t('checkImageUpdates')"
+                    @click="checkImageUpdates"
+                >
+                    <font-awesome-icon icon="cloud-arrow-down" :spin="checkingUpdates" />
+                </button>
+
                 <div class="placeholder"></div>
                 <div class="search-wrapper">
                     <a v-if="searchText == ''" class="search-icon">
@@ -107,6 +118,7 @@ export default {
                 tags: null,
             },
             closedAgents: new Map(),
+            checkingUpdates: false,
         };
     },
     computed: {
@@ -315,6 +327,17 @@ export default {
             this.searchText = "";
         },
         /**
+         * imtv: trigger registry image update check
+         * @returns {void}
+         */
+        checkImageUpdates() {
+            this.checkingUpdates = true;
+            this.$root.emitAgent("", "checkImageUpdates", (res) => {
+                this.checkingUpdates = false;
+                this.$root.toastRes(res);
+            });
+        },
+        /**
          * Update the StackList Filter
          * @param {object} newFilter Object with new filter
          * @returns {void}
@@ -418,6 +441,12 @@ export default {
     display: flex;
     justify-content: space-between;
     align-items: center;
+}
+
+.check-update-btn {
+    padding: 4px 8px;
+    margin-right: 4px;
+    flex-shrink: 0;
 }
 
 .header-filter {

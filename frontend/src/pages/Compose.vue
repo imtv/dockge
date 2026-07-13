@@ -36,9 +36,17 @@
                         {{ $t("restartStack") }}
                     </button>
 
-                    <button v-if="!isEditMode" class="btn btn-normal" :disabled="processing" @click="updateStack">
+                    <button
+                        v-if="!isEditMode"
+                        class="btn"
+                        :class="hasImageUpdate ? 'btn-warning' : 'btn-normal'"
+                        :disabled="processing"
+                        :title="hasImageUpdate ? $t('imageUpdateAvailable') : ''"
+                        @click="updateStack"
+                    >
                         <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
                         {{ $t("updateStack") }}
+                        <span v-if="hasImageUpdate" class="badge bg-dark ms-1">!</span>
                     </button>
 
                     <button v-if="!isEditMode && active" class="btn btn-normal" :disabled="processing" @click="stopStack">
@@ -274,7 +282,8 @@ services:
     image: nginx:latest
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - 8080:80
+    network_mode: bridge
 `;
 const envDefault = "# VARIABLE=value #comment";
 
@@ -398,6 +407,11 @@ export default {
             return this.status === RUNNING;
         },
 
+        /** imtv: stack has newer image(s) on registry */
+        hasImageUpdate() {
+            return !!this.globalStack?.hasUpdate;
+        },
+
         terminalName() {
             if (!this.stack.name) {
                 return "";
@@ -453,6 +467,11 @@ export default {
             handler() {
                 if (!this.editorFocus) {
                     console.debug("jsonConfig changed");
+
+                    // imtv: never serialize empty networks: {} into compose YAML
+                    if (this.jsonConfig.networks && Object.keys(this.jsonConfig.networks).length === 0) {
+                        delete this.jsonConfig.networks;
+                    }
 
                     let doc = new Document(this.jsonConfig);
 
@@ -696,6 +715,7 @@ export default {
 
         updateStack() {
             this.processing = true;
+            this.showProgressTerminal = true;
 
             this.$root.emitAgent(this.endpoint, "updateStack", this.stack.name, (res) => {
                 this.processing = false;
