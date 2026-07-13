@@ -54,7 +54,7 @@
             </div>
         </div>
 
-        <div class="shadow-box">
+        <div class="shadow-box image-list-box">
             <div v-if="loading && imageList.length === 0" class="p-4 text-center text-muted">
                 {{ $t("loading") }}...
             </div>
@@ -94,13 +94,13 @@
                                 >
                             </td>
                             <td>
-                                <span class="fw-medium">{{ img.name }}</span>
+                                <span class="fw-medium name-cell">{{ img.name }}</span>
                                 <span v-if="img.needUpdate" class="badge bg-warning text-dark ms-2">{{ $t("update") }}</span>
                             </td>
-                            <td><code>{{ img.tag }}</code></td>
-                            <td><code class="small">{{ img.shortId }}</code></td>
+                            <td><code class="mono-chip">{{ img.tag }}</code></td>
+                            <td><code class="mono-chip small">{{ img.shortId }}</code></td>
                             <td>{{ img.sizeFormat }}</td>
-                            <td class="small text-muted">{{ img.createTime }}</td>
+                            <td class="small create-time">{{ img.createTime }}</td>
                             <td>
                                 <span v-if="img.inUsed" class="badge bg-success">{{ $t("inUse") }}</span>
                                 <span v-else-if="img.dangling" class="badge bg-secondary">{{ $t("dangling") }}</span>
@@ -296,16 +296,49 @@ export default {
 <style lang="scss" scoped>
 @import "../styles/vars.scss";
 
+.image-list-box {
+    overflow: hidden;
+}
+
+/* Base table: transparent so shadow-box theme shows through */
 .image-table {
     font-size: 14px;
+    --bs-table-bg: transparent;
+    --bs-table-color: inherit;
+    --bs-table-border-color: #dee2e6;
+    --bs-table-striped-bg: transparent;
+    --bs-table-hover-bg: #{$highlight-white};
+    --bs-table-hover-color: inherit;
+    color: inherit;
+    background-color: transparent;
 
-    th {
+    th,
+    td {
         white-space: nowrap;
-        border-top: none;
+        border-color: var(--bs-table-border-color);
+        background-color: transparent !important;
+        color: inherit;
+        vertical-align: middle;
+        box-shadow: none !important;
     }
 
-    code {
+    thead th {
+        border-top: none;
+        border-bottom-width: 1px;
+        font-weight: 600;
+        color: $dark-font-color3;
+    }
+
+    .mono-chip {
         font-size: 12px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background-color: rgba(0, 0, 0, 0.04);
+        color: inherit;
+    }
+
+    .create-time {
+        color: $dark-font-color3;
     }
 }
 
@@ -315,5 +348,59 @@ export default {
 
 .gap-2 {
     gap: 0.5rem;
+}
+</style>
+
+<!-- body.dark is outside component; unscoped overrides for Bootstrap table -->
+<style lang="scss">
+@import "../styles/vars.scss";
+
+.dark .image-table {
+    --bs-table-bg: transparent;
+    --bs-table-color: #{$dark-font-color};
+    --bs-table-border-color: #{$dark-border-color};
+    --bs-table-hover-bg: #{$dark-bg2};
+    --bs-table-hover-color: #{$dark-font-color};
+    --bs-table-striped-bg: transparent;
+    --bs-table-active-bg: #{$dark-bg2};
+    color: $dark-font-color;
+    background-color: transparent;
+
+    thead th {
+        color: $dark-font-color3;
+        border-bottom-color: $dark-border-color;
+        background-color: transparent !important;
+    }
+
+    th,
+    td {
+        border-color: $dark-border-color !important;
+        color: $dark-font-color !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
+        --bs-table-bg-type: transparent;
+        --bs-table-bg-state: transparent;
+    }
+
+    tbody tr:hover > * {
+        --bs-table-accent-bg: #{$dark-bg2};
+        --bs-table-bg-state: #{$dark-bg2};
+        color: $dark-font-color !important;
+        background-color: $dark-bg2 !important;
+    }
+
+    .mono-chip {
+        background-color: $dark-bg2;
+        color: $dark-font-color;
+        border: 1px solid $dark-border-color;
+    }
+
+    .create-time {
+        color: $dark-font-color3 !important;
+    }
+
+    .text-muted {
+        color: $dark-font-color3 !important;
+    }
 }
 </style>
