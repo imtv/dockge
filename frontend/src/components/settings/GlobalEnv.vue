@@ -92,18 +92,10 @@ export default {
     font-family: "JetBrains Mono", monospace;
     font-size: 14px;
     overflow: hidden;
-    background-color: #f0f2f5;
+    background-color: #0d1117 !important;
 
     &.edit-mode {
-        background-color: #ffffff;
-    }
-
-    :global(.dark) & {
-        background-color: #0d1117;
-
-        &.edit-mode {
-            background-color: #161b22;
-        }
+        background-color: #2d2f3f !important;
     }
 
     :deep(.cm-editor),

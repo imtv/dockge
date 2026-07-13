@@ -883,22 +883,16 @@ export default {
     font-family: "JetBrains Mono", monospace;
     font-size: 14px;
     overflow: hidden;
-    /* Light theme defaults */
-    background-color: #f0f2f5;
+    /*
+     * Dark UI (default for Dockge):
+     *   saved/view  → near-black
+     *   edit-mode   → blue-gray (visibly lighter, not pure black)
+     * Use !important so .dark .shadow-box does not override.
+     */
+    background-color: #0d1117 !important;
 
     &.edit-mode {
-        background-color: #ffffff;
-    }
-
-    /* Dark theme — .dark is on body (not :root) */
-    :global(.dark) & {
-        /* view / saved — darker */
-        background-color: #0d1117;
-
-        &.edit-mode {
-            /* editing — slightly lighter gray */
-            background-color: #161b22;
-        }
+        background-color: #2d2f3f !important;
     }
 
     :deep(.cm-editor),
