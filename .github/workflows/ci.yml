@@ -1,36 +1,40 @@
+# Upstream Dockge CI — fixed for this fork.
+# Invalid upstream step (run + uses together) and missing ARM runners caused
+# a failed "ci.yml" run on every push. We only need ubuntu CI on master;
+# image builds for imtv are handled by ghcr-build.yml.
 name: Node.js CI - Dockge
 
 on:
   push:
     branches: [master]
     paths-ignore:
-      - '*.md'
+      - "*.md"
+      - "IMTV.md"
   pull_request:
     branches: [master]
     paths-ignore:
-      - '*.md'
+      - "*.md"
+      - "IMTV.md"
 
 jobs:
   ci:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest, ARM, ARM64]
-        node: [22] # Can be changed
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        run: |  # Mainly for Windows
-          git config --global core.autocrlf false
-          git config --global core.eol lf
         uses: actions/checkout@v4
 
+      - name: Configure git line endings
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: ${{matrix.node}}
+          node-version: 22
 
       - name: Install dependencies
-        run: npm install
+        run: npm clean-install --no-fund --ignore-scripts
 
       - name: Lint
         run: npm run lint
@@ -40,5 +44,3 @@ jobs:
 
       - name: Build
         run: npm run build:frontend
-      # more things can be add later like tests etc..
-
