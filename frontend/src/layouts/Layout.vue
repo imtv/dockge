@@ -296,25 +296,6 @@ main {
         .dropdown-item {
             padding: 0.7rem 1rem;
         }
-
-        .dark & {
-            background-color: $dark-bg;
-            color: $dark-font-color;
-            border-color: $dark-border-color;
-
-            .dropdown-item {
-                color: $dark-font-color;
-
-                &.active {
-                    color: $dark-font-color2;
-                    background-color: $highlight !important;
-                }
-
-                &:hover {
-                    background-color: $dark-bg2;
-                }
-            }
-        }
     }
 
     .profile-pic {
@@ -349,10 +330,43 @@ main {
 }
 </style>
 
-<!-- Badge keeps black digits on orange in all themes; label uses same rules as other nav-links -->
+<!-- Unscoped: dark dropdown + badge (body.dark is outside component scoped root) -->
 <style lang="scss">
+@import "../styles/vars.scss";
+
 .nav-pills .nav-link.images-nav-link .image-update-nav-badge {
     color: #000 !important;
     background-color: #f0ad4e;
+}
+
+.dark .dropdown-profile-pic .dropdown-menu {
+    background-color: $dark-bg !important;
+    color: $dark-font-color !important;
+    border-color: $dark-border-color !important;
+
+    .dropdown-item-text,
+    .dropdown-item-text strong {
+        color: $dark-font-color !important;
+    }
+
+    .dropdown-item {
+        color: $dark-font-color !important;
+
+        &:hover,
+        &:focus {
+            color: $dark-font-color !important;
+            background-color: $dark-bg2 !important;
+        }
+
+        &.active,
+        &.router-link-active {
+            color: $dark-font-color2 !important;
+            background-color: $highlight !important;
+        }
+    }
+
+    .dropdown-divider {
+        border-top-color: $dark-border-color;
+    }
 }
 </style>
