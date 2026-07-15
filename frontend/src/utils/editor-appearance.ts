@@ -106,11 +106,16 @@ export const softEditorChrome: Extension = EditorView.theme({
 
 /** Soft syntax (readable on both slightly lighter edit panel and dark view panel) */
 export const softEditorHighlight: Extension = syntaxHighlighting(HighlightStyle.define([
-    { tag: t.comment, color: "#6a7380" },
-    { tag: [ t.string, t.special(t.brace) ], color: "#a3b06a" },
-    { tag: [ t.number, t.self, t.bool, t.null ], color: "#9b86c0" },
-    { tag: [ t.keyword, t.operator ], color: "#c07a9e" },
-    { tag: [ t.definitionKeyword, t.typeName ], color: "#6ea0ad" },
+    { tag: t.comment,
+        color: "#6a7380" },
+    { tag: [ t.string, t.special(t.brace) ],
+        color: "#a3b06a" },
+    { tag: [ t.number, t.self, t.bool, t.null ],
+        color: "#9b86c0" },
+    { tag: [ t.keyword, t.operator ],
+        color: "#c07a9e" },
+    { tag: [ t.definitionKeyword, t.typeName ],
+        color: "#6ea0ad" },
     {
         tag: [
             t.propertyName,
@@ -121,8 +126,10 @@ export const softEditorHighlight: Extension = syntaxHighlighting(HighlightStyle.
         ],
         color: "#6db384",
     },
-    { tag: t.variableName, color: "#b1b8c0" },
-    { tag: t.meta, color: "#6a7380" },
+    { tag: t.variableName,
+        color: "#b1b8c0" },
+    { tag: t.meta,
+        color: "#6a7380" },
 ]));
 
 export const dockgeEditorAppearance: Extension[] = [

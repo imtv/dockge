@@ -189,15 +189,16 @@ export class DockerSocketHandler extends AgentSocketHandler {
 
                 const stack = await Stack.getStack(server, stackName);
                 await stack.update(socket);
-                imageUpdateChecker.clearStackUpdate(stackName);
-                // Refresh digest status after pull (async, non-blocking)
-                imageUpdateChecker.checkAll(true).then(() => server.sendStackList()).catch(() => {});
+                // Only clear this stack's flags in memory — no full registry recheck.
+                // Full check runs on startup / 3h cron / manual "check updates" only.
+                await imageUpdateChecker.markStackUpdated(stackName);
+                server.sendStackList();
                 callbackResult({
                     ok: true,
                     msg: "Updated",
                     msgi18n: true,
+                    checkStatus: imageUpdateChecker.getStatus(),
                 }, callback);
-                server.sendStackList();
             } catch (e) {
                 callbackError(e, callback);
             }

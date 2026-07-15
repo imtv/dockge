@@ -335,13 +335,38 @@ main {
         background-color: $dark-header-bg;
         border-bottom-color: $dark-header-bg !important;
 
-        span {
+        /* Only brand title — do not force all header spans white (breaks active nav labels) */
+        .title {
             color: #f0f6fc;
         }
     }
 
     .bottom-nav {
         background-color: $dark-bg;
+    }
+}
+</style>
+
+<!-- Unscoped: ensure Images nav active text stays dark like other pills -->
+<style lang="scss">
+@import "../styles/vars.scss";
+
+.nav-pills .nav-link.images-nav-link.active,
+.nav-pills .nav-link.images-nav-link.router-link-active {
+    color: #{$dark-font-color2} !important;
+
+    > span:not(.image-update-nav-badge) {
+        color: inherit !important;
+    }
+
+    > svg {
+        color: inherit !important;
+        fill: currentColor;
+    }
+
+    .image-update-nav-badge {
+        color: #000 !important;
+        background-color: #f0ad4e;
     }
 }
 </style>

@@ -41,7 +41,7 @@ export async function getStackPortsMap(force = false): Promise<Map<string, Stack
             "inspect",
             ...ids,
             "--format",
-            '{{index .Config.Labels "com.docker.compose.project"}}\t{{.HostConfig.NetworkMode}}\t{{json .NetworkSettings.Ports}}\t{{json .Config.ExposedPorts}}',
+            "{{index .Config.Labels \"com.docker.compose.project\"}}\t{{.HostConfig.NetworkMode}}\t{{json .NetworkSettings.Ports}}\t{{json .Config.ExposedPorts}}",
         ], { encoding: "utf-8" });
 
         if (!insp.stdout) {

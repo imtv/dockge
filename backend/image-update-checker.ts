@@ -56,6 +56,9 @@ export class ImageUpdateChecker {
     private lastCheckAt = 0;
     private checking = false;
     private lastError: string | null = null;
+    /** In-flight check promise so callers can await and force re-run after */
+    private checkPromise: Promise<void> | null = null;
+    private pendingForceRecheck = false;
 
     get isChecking() {
         return this.checking;
@@ -78,23 +81,38 @@ export class ImageUpdateChecker {
     }
 
     getStatus() {
-        const imageUpdateCount = [ ...this.imageNeedUpdate.values() ].filter(Boolean).length;
+        // Unique images needing update (dedupe short/full if both ever present)
+        const seen = new Set<string>();
+        for (const [ id, need ] of this.imageNeedUpdate) {
+            if (!need) {
+                continue;
+            }
+            seen.add(id.replace(/^sha256:/, "").slice(0, 12));
+        }
         const stackUpdateCount = [ ...this.stackNeedUpdate.values() ].filter(Boolean).length;
         return {
             checking: this.checking,
             lastCheckAt: this.lastCheckAt,
             lastError: this.lastError,
-            imageUpdateCount,
+            imageUpdateCount: seen.size,
             stackUpdateCount,
         };
     }
 
     /**
      * Full check: list images, query registries, map to stacks.
+     * Concurrent callers share one run; force while running schedules a follow-up.
      */
     async checkAll(force = false): Promise<void> {
-        if (this.checking) {
-            log.debug("image-update", "Check already in progress, skip");
+        if (this.checkPromise) {
+            if (force) {
+                this.pendingForceRecheck = true;
+            }
+            await this.checkPromise;
+            if (this.pendingForceRecheck) {
+                this.pendingForceRecheck = false;
+                return this.checkAll(true);
+            }
             return;
         }
 
@@ -104,6 +122,18 @@ export class ImageUpdateChecker {
             return;
         }
 
+        this.checkPromise = this.runCheckAll().finally(() => {
+            this.checkPromise = null;
+        });
+        await this.checkPromise;
+
+        if (this.pendingForceRecheck) {
+            this.pendingForceRecheck = false;
+            await this.checkAll(true);
+        }
+    }
+
+    private async runCheckAll(): Promise<void> {
         this.checking = true;
         this.lastError = null;
 
@@ -151,6 +181,62 @@ export class ImageUpdateChecker {
             log.error("image-update", this.lastError);
         } finally {
             this.checking = false;
+        }
+    }
+
+    /**
+     * After a stack was successfully updated (compose pull):
+     * remove this stack + its image ids from the in-memory update set.
+     * Does NOT hit registries again — full check only on startup / cron / manual.
+     */
+    async markStackUpdated(stackName: string): Promise<void> {
+        // Wait for any in-flight full check so it cannot overwrite our clears
+        if (this.checkPromise) {
+            await this.checkPromise;
+        }
+
+        this.stackNeedUpdate.set(stackName, false);
+        try {
+            const bindings = await listContainerImageBindings();
+
+            for (const { imageId, project } of bindings) {
+                if (project !== stackName || !imageId) {
+                    continue;
+                }
+                const full = normalizeImageId(imageId);
+                const short = shortImageId(full);
+                const bare = full.replace(/^sha256:/, "");
+                for (const id of [ ...this.imageNeedUpdate.keys() ]) {
+                    const idBare = id.replace(/^sha256:/, "");
+                    if (
+                        id === full ||
+                        idBare === bare ||
+                        idBare.startsWith(short) ||
+                        bare.startsWith(idBare.slice(0, 12))
+                    ) {
+                        this.imageNeedUpdate.delete(id);
+                    }
+                }
+                this.imageNeedUpdate.delete(full);
+            }
+
+            // Other stacks that only used the cleared images no longer need the badge
+            for (const [ otherStack, needs ] of this.stackNeedUpdate) {
+                if (!needs || otherStack === stackName) {
+                    continue;
+                }
+                const otherImages = bindings
+                    .filter((b) => b.project === otherStack)
+                    .map((b) => normalizeImageId(b.imageId));
+                const stillNeeds = otherImages.some((id) => mapSaysImageNeedsUpdate(this.imageNeedUpdate, id));
+                if (!stillNeeds) {
+                    this.stackNeedUpdate.set(otherStack, false);
+                }
+            }
+
+            log.info("image-update", `Cleared update flags for stack ${stackName}, remaining images: ${this.getStatus().imageUpdateCount}`);
+        } catch (e) {
+            log.error("image-update", "markStackUpdated failed: " + e);
         }
     }
 

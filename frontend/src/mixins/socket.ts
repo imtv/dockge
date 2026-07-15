@@ -257,11 +257,6 @@ export default defineComponent({
                 if (res.ok) {
                     if (!res.endpoint) {
                         this.stackList = res.stackList;
-                        // imtv: sync image update count for header badge
-                        if (res.imageUpdateStatus) {
-                            this.imageUpdateCount = res.imageUpdateStatus.imageUpdateCount || 0;
-                            this.imageUpdateLastCheckAt = res.imageUpdateStatus.lastCheckAt || 0;
-                        }
                     } else {
                         if (!this.allAgentStackList[res.endpoint]) {
                             this.allAgentStackList[res.endpoint] = {
@@ -269,6 +264,11 @@ export default defineComponent({
                             };
                         }
                         this.allAgentStackList[res.endpoint].stackList = res.stackList;
+                    }
+                    // imtv: always sync nav badge (local agent has imageUpdateStatus)
+                    if (res.imageUpdateStatus && typeof res.imageUpdateStatus.imageUpdateCount === "number") {
+                        this.imageUpdateCount = res.imageUpdateStatus.imageUpdateCount;
+                        this.imageUpdateLastCheckAt = res.imageUpdateStatus.lastCheckAt || 0;
                     }
                 }
             });

@@ -720,6 +720,11 @@ export default {
             this.$root.emitAgent(this.endpoint, "updateStack", this.stack.name, (res) => {
                 this.processing = false;
                 this.$root.toastRes(res);
+                // Badge follows server memory flags (cleared for this stack only — no recheck-all)
+                if (res && res.ok && res.checkStatus) {
+                    this.$root.imageUpdateCount = res.checkStatus.imageUpdateCount || 0;
+                    this.$root.imageUpdateLastCheckAt = res.checkStatus.lastCheckAt || 0;
+                }
             });
         },
 
