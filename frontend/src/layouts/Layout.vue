@@ -34,9 +34,9 @@
                 </li>
 
                 <li v-if="$root.loggedIn" class="nav-item me-2">
+                    <!-- Same text layout as home/console so light/dark colors inherit correctly -->
                     <router-link to="/images" class="nav-link images-nav-link">
-                        <font-awesome-icon icon="images" />
-                        <span>{{ $t("images") }}</span>
+                        <font-awesome-icon icon="images" /> {{ $t("images") }}
                         <span
                             v-if="$root.imageUpdateCount > 0"
                             class="image-update-nav-badge"
@@ -223,27 +223,29 @@ main {
     margin-right: 25px;
 }
 
-/* imtv: image update count on Images nav — vertically centered with label */
+/* imtv: badge only — label text is a text node like home/console (inherits nav colors) */
 .images-nav-link {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
 }
 
 .image-update-nav-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    box-sizing: border-box;
     background-color: #f0ad4e;
     color: #000 !important;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
-    min-width: 1.35em;
-    height: 1.35em;
+    min-width: 1.65em;
+    height: 1.65em;
     padding: 0 6px;
-    border-radius: 10px;
+    border-radius: 999px;
     line-height: 1;
-    vertical-align: middle;
+    text-align: center;
+    flex-shrink: 0;
 }
 
 .lost-connection {
@@ -347,26 +349,10 @@ main {
 }
 </style>
 
-<!-- Unscoped: ensure Images nav active text stays dark like other pills -->
+<!-- Badge keeps black digits on orange in all themes; label uses same rules as other nav-links -->
 <style lang="scss">
-@import "../styles/vars.scss";
-
-.nav-pills .nav-link.images-nav-link.active,
-.nav-pills .nav-link.images-nav-link.router-link-active {
-    color: #{$dark-font-color2} !important;
-
-    > span:not(.image-update-nav-badge) {
-        color: inherit !important;
-    }
-
-    > svg {
-        color: inherit !important;
-        fill: currentColor;
-    }
-
-    .image-update-nav-badge {
-        color: #000 !important;
-        background-color: #f0ad4e;
-    }
+.nav-pills .nav-link.images-nav-link .image-update-nav-badge {
+    color: #000 !important;
+    background-color: #f0ad4e;
 }
 </style>

@@ -53,6 +53,12 @@ export class ImageUpdateChecker {
     private imageNeedUpdate = new Map<string, boolean>();
     /** stack name (compose project) -> has update */
     private stackNeedUpdate = new Map<string, boolean>();
+    /**
+     * stack name -> image ids that needed update at last check.
+     * Used when marking a stack updated: after pull the container image id changes,
+     * so we must clear the *old* ids recorded here, not only current bindings.
+     */
+    private stackUpdateImages = new Map<string, Set<string>>();
     private lastCheckAt = 0;
     private checking = false;
     private lastError: string | null = null;
@@ -168,12 +174,15 @@ export class ImageUpdateChecker {
 
             this.imageNeedUpdate = needUpdateMap;
 
-            // Map containers -> compose project (stack)
-            const stackMap = await mapStackImageUpdates(needUpdateMap);
+            // Map containers -> compose project (stack) + remember image ids per stack
+            const {
+                stackMap, stackImages,
+            } = await mapStackImageUpdates(needUpdateMap);
             this.stackNeedUpdate = stackMap;
+            this.stackUpdateImages = stackImages;
 
             this.lastCheckAt = Date.now();
-            const imgCount = [ ...needUpdateMap.values() ].filter(Boolean).length;
+            const imgCount = this.getStatus().imageUpdateCount;
             const stackCount = [ ...stackMap.values() ].filter(Boolean).length;
             log.info("image-update", `Check done. Images needing update: ${imgCount}, stacks: ${stackCount}`);
         } catch (e) {
@@ -186,7 +195,7 @@ export class ImageUpdateChecker {
 
     /**
      * After a stack was successfully updated (compose pull):
-     * remove this stack + its image ids from the in-memory update set.
+     * remove this stack + the image ids recorded at last check (old digests).
      * Does NOT hit registries again — full check only on startup / cron / manual.
      */
     async markStackUpdated(stackName: string): Promise<void> {
@@ -196,48 +205,71 @@ export class ImageUpdateChecker {
         }
 
         this.stackNeedUpdate.set(stackName, false);
+
+        // Prefer ids from last check (before pull). After pull, container Image id is NEW
+        // and would not match the flags we stored for the OLD image.
+        const recorded = this.stackUpdateImages.get(stackName) || new Set<string>();
+        this.stackUpdateImages.delete(stackName);
+
+        for (const imageId of recorded) {
+            this.deleteImageUpdateFlag(imageId);
+        }
+
+        // Fallback: also clear whatever containers currently report for this project
         try {
             const bindings = await listContainerImageBindings();
-
             for (const { imageId, project } of bindings) {
-                if (project !== stackName || !imageId) {
-                    continue;
+                if (project === stackName && imageId) {
+                    this.deleteImageUpdateFlag(imageId);
                 }
-                const full = normalizeImageId(imageId);
-                const short = shortImageId(full);
-                const bare = full.replace(/^sha256:/, "");
-                for (const id of [ ...this.imageNeedUpdate.keys() ]) {
-                    const idBare = id.replace(/^sha256:/, "");
-                    if (
-                        id === full ||
-                        idBare === bare ||
-                        idBare.startsWith(short) ||
-                        bare.startsWith(idBare.slice(0, 12))
-                    ) {
-                        this.imageNeedUpdate.delete(id);
-                    }
-                }
-                this.imageNeedUpdate.delete(full);
             }
 
-            // Other stacks that only used the cleared images no longer need the badge
+            // Other stacks: drop badge if none of their recorded images still need update
             for (const [ otherStack, needs ] of this.stackNeedUpdate) {
                 if (!needs || otherStack === stackName) {
+                    continue;
+                }
+                const otherRecorded = this.stackUpdateImages.get(otherStack);
+                if (otherRecorded && otherRecorded.size > 0) {
+                    const still = [ ...otherRecorded ].some((id) => this.imageHasUpdate(id));
+                    if (!still) {
+                        this.stackNeedUpdate.set(otherStack, false);
+                        this.stackUpdateImages.delete(otherStack);
+                    }
                     continue;
                 }
                 const otherImages = bindings
                     .filter((b) => b.project === otherStack)
                     .map((b) => normalizeImageId(b.imageId));
-                const stillNeeds = otherImages.some((id) => mapSaysImageNeedsUpdate(this.imageNeedUpdate, id));
+                const stillNeeds = otherImages.some((id) => this.imageHasUpdate(id));
                 if (!stillNeeds) {
                     this.stackNeedUpdate.set(otherStack, false);
                 }
             }
-
-            log.info("image-update", `Cleared update flags for stack ${stackName}, remaining images: ${this.getStatus().imageUpdateCount}`);
         } catch (e) {
-            log.error("image-update", "markStackUpdated failed: " + e);
+            log.error("image-update", "markStackUpdated bindings: " + e);
         }
+
+        log.info("image-update", `Cleared update flags for stack ${stackName}, remaining images: ${this.getStatus().imageUpdateCount}`);
+    }
+
+    /** Remove one image id (and short/prefix aliases) from the need-update map */
+    private deleteImageUpdateFlag(imageId: string) {
+        const full = normalizeImageId(imageId);
+        const short = shortImageId(full);
+        const bare = full.replace(/^sha256:/, "");
+        for (const id of [ ...this.imageNeedUpdate.keys() ]) {
+            const idBare = id.replace(/^sha256:/, "");
+            if (
+                id === full ||
+                idBare === bare ||
+                idBare.startsWith(short) ||
+                bare.startsWith(idBare.slice(0, 12))
+            ) {
+                this.imageNeedUpdate.delete(id);
+            }
+        }
+        this.imageNeedUpdate.delete(full);
     }
 
     /** Clear update flag for a stack after successful update */
@@ -509,10 +541,15 @@ function mapSaysImageNeedsUpdate(imageNeedUpdate: Map<string, boolean>, imageId:
 }
 
 /**
- * Map which compose stacks use images that need updates.
+ * Map which compose stacks use images that need updates,
+ * and record which image ids belong to each stack (for clear-after-update).
  */
-async function mapStackImageUpdates(imageNeedUpdate: Map<string, boolean>): Promise<Map<string, boolean>> {
+async function mapStackImageUpdates(imageNeedUpdate: Map<string, boolean>): Promise<{
+    stackMap: Map<string, boolean>;
+    stackImages: Map<string, Set<string>>;
+}> {
     const stackMap = new Map<string, boolean>();
+    const stackImages = new Map<string, Set<string>>();
 
     try {
         const bindings = await listContainerImageBindings();
@@ -521,10 +558,15 @@ async function mapStackImageUpdates(imageNeedUpdate: Map<string, boolean>): Prom
             if (!project) {
                 continue;
             }
-            const needs = mapSaysImageNeedsUpdate(imageNeedUpdate, imageId);
+            const full = normalizeImageId(imageId);
+            const needs = mapSaysImageNeedsUpdate(imageNeedUpdate, full);
 
             if (needs) {
                 stackMap.set(project, true);
+                if (!stackImages.has(project)) {
+                    stackImages.set(project, new Set());
+                }
+                stackImages.get(project)!.add(full);
             } else if (!stackMap.has(project)) {
                 stackMap.set(project, false);
             }
@@ -533,7 +575,10 @@ async function mapStackImageUpdates(imageNeedUpdate: Map<string, boolean>): Prom
         log.error("image-update", "Failed to map stack updates: " + e);
     }
 
-    return stackMap;
+    return {
+        stackMap,
+        stackImages,
+    };
 }
 
 async function checkRemoteDigest(image: LocalImageInfo): Promise<boolean> {
