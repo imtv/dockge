@@ -635,6 +635,8 @@ export class DockgeServer {
                 dockgeSocket.emitAgent("stackList", {
                     ok: true,
                     stackList: Object.fromEntries(map),
+                    // imtv: for nav badge on Images
+                    imageUpdateStatus: imageUpdateChecker.getStatus(),
                 });
             }
         }

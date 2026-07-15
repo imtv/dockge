@@ -15,3 +15,8 @@ frontend-dist
 temp.md
 *.token
 
+
+# local secrets (do not commit)
+GITHUB_TOKEN.md
+*.token
+.secrets/

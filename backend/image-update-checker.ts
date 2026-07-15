@@ -49,7 +49,7 @@ const CHECK_CONCURRENCY = 5;
 const REQUEST_TIMEOUT_MS = 15000;
 
 export class ImageUpdateChecker {
-    /** full or short image id -> needs update */
+    /** full image id (sha256:...) -> needs update — never store short ids here (would double-count) */
     private imageNeedUpdate = new Map<string, boolean>();
     /** stack name (compose project) -> has update */
     private stackNeedUpdate = new Map<string, boolean>();
@@ -74,25 +74,18 @@ export class ImageUpdateChecker {
     }
 
     imageHasUpdate(imageId: string): boolean {
-        if (this.imageNeedUpdate.get(imageId)) {
-            return true;
-        }
-        // Match short ids
-        for (const [ id, need ] of this.imageNeedUpdate) {
-            if (need && (id.startsWith(imageId) || imageId.startsWith(id.replace(/^sha256:/, "")))) {
-                return true;
-            }
-        }
-        return false;
+        return mapSaysImageNeedsUpdate(this.imageNeedUpdate, imageId);
     }
 
     getStatus() {
+        const imageUpdateCount = [ ...this.imageNeedUpdate.values() ].filter(Boolean).length;
+        const stackUpdateCount = [ ...this.stackNeedUpdate.values() ].filter(Boolean).length;
         return {
             checking: this.checking,
             lastCheckAt: this.lastCheckAt,
             lastError: this.lastError,
-            imageUpdateCount: [ ...this.imageNeedUpdate.values() ].filter(Boolean).length,
-            stackUpdateCount: [ ...this.stackNeedUpdate.values() ].filter(Boolean).length,
+            imageUpdateCount,
+            stackUpdateCount,
         };
     }
 
@@ -119,13 +112,20 @@ export class ImageUpdateChecker {
             const images = await listLocalImages();
             const tagged = images.filter((img) => img.imageTag && img.imageTag !== "<none>" && img.imageName && img.imageName !== "<none>");
 
+            // One registry check per unique image id (multiple tags share one id)
+            const uniqueById = new Map<string, LocalImageInfo>();
+            for (const img of tagged) {
+                if (!uniqueById.has(img.id)) {
+                    uniqueById.set(img.id, img);
+                }
+            }
+
             const needUpdateMap = new Map<string, boolean>();
 
-            await mapPool(tagged, CHECK_CONCURRENCY, async (image) => {
+            await mapPool([ ...uniqueById.values() ], CHECK_CONCURRENCY, async (image) => {
                 try {
                     const need = await checkRemoteDigest(image);
                     needUpdateMap.set(image.id, need);
-                    needUpdateMap.set(image.shortId, need);
                     if (need) {
                         log.info("image-update", `Update available: ${image.imageName}:${image.imageTag}`);
                     }
@@ -143,7 +143,9 @@ export class ImageUpdateChecker {
             this.stackNeedUpdate = stackMap;
 
             this.lastCheckAt = Date.now();
-            log.info("image-update", `Check done. Images needing update: ${[ ...needUpdateMap.values() ].filter(Boolean).length}, stacks: ${[ ...stackMap.values() ].filter(Boolean).length}`);
+            const imgCount = [ ...needUpdateMap.values() ].filter(Boolean).length;
+            const stackCount = [ ...stackMap.values() ].filter(Boolean).length;
+            log.info("image-update", `Check done. Images needing update: ${imgCount}, stacks: ${stackCount}`);
         } catch (e) {
             this.lastError = e instanceof Error ? e.message : String(e);
             log.error("image-update", this.lastError);
@@ -395,6 +397,32 @@ async function getUsedImageIds(): Promise<Set<string>> {
 }
 
 /**
+ * Whether map marks this image id as needing update (full or short id).
+ */
+function mapSaysImageNeedsUpdate(imageNeedUpdate: Map<string, boolean>, imageId: string): boolean {
+    if (!imageId) {
+        return false;
+    }
+    const full = normalizeImageId(imageId);
+    if (imageNeedUpdate.get(full) === true) {
+        return true;
+    }
+    // Map keys are full ids only; match short / prefix
+    const short = shortImageId(full);
+    const bare = full.replace(/^sha256:/, "");
+    for (const [ id, need ] of imageNeedUpdate) {
+        if (!need) {
+            continue;
+        }
+        const idBare = id.replace(/^sha256:/, "");
+        if (id === full || idBare === bare || idBare.startsWith(short) || bare.startsWith(idBare.slice(0, 12))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
  * Map which compose stacks use images that need updates.
  */
 async function mapStackImageUpdates(imageNeedUpdate: Map<string, boolean>): Promise<Map<string, boolean>> {
@@ -407,13 +435,7 @@ async function mapStackImageUpdates(imageNeedUpdate: Map<string, boolean>): Prom
             if (!project) {
                 continue;
             }
-            const shortId = shortImageId(imageId);
-            const needs =
-                imageNeedUpdate.get(imageId) === true ||
-                imageNeedUpdate.get(shortId) === true ||
-                [ ...imageNeedUpdate.entries() ].some(([ id, v ]) =>
-                    v && (id === imageId || id === shortId || id.startsWith(shortId) || shortId.startsWith(id.replace(/^sha256:/, "").slice(0, 12)))
-                );
+            const needs = mapSaysImageNeedsUpdate(imageNeedUpdate, imageId);
 
             if (needs) {
                 stackMap.set(project, true);

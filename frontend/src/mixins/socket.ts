@@ -33,6 +33,10 @@ export default defineComponent({
 
             stackList: {},
 
+            // imtv: images with registry updates (for nav badge)
+            imageUpdateCount: 0,
+            imageUpdateLastCheckAt: 0,
+
             // All stack list from all agents
             allAgentStackList: {} as Record<string, object>,
 
@@ -253,6 +257,11 @@ export default defineComponent({
                 if (res.ok) {
                     if (!res.endpoint) {
                         this.stackList = res.stackList;
+                        // imtv: sync image update count for header badge
+                        if (res.imageUpdateStatus) {
+                            this.imageUpdateCount = res.imageUpdateStatus.imageUpdateCount || 0;
+                            this.imageUpdateLastCheckAt = res.imageUpdateStatus.lastCheckAt || 0;
+                        }
                     } else {
                         if (!this.allAgentStackList[res.endpoint]) {
                             this.allAgentStackList[res.endpoint] = {

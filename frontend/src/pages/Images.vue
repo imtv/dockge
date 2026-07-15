@@ -37,9 +37,6 @@
 
             <span v-if="checkStatus.lastCheckAt" class="meta-line">
                 {{ $t("lastChecked") }}: {{ formatTime(checkStatus.lastCheckAt) }}
-                <span v-if="checkStatus.imageUpdateCount > 0" class="badge update-badge ms-2">
-                    {{ checkStatus.imageUpdateCount }} {{ $t("updatesAvailable") }}
-                </span>
             </span>
         </div>
 
@@ -288,6 +285,7 @@ export default {
                 if (res.ok) {
                     this.imageList = res.imageList || [];
                     this.checkStatus = res.checkStatus || {};
+                    this.syncRootUpdateCount(this.checkStatus);
                     const ids = new Set(this.imageList.map((i) => i.id));
                     for (const id of Object.keys(this.selectedMap)) {
                         if (!ids.has(id)) {
@@ -306,9 +304,22 @@ export default {
                 this.$root.toastRes(res);
                 if (res.ok) {
                     this.checkStatus = res.checkStatus || {};
+                    this.syncRootUpdateCount(this.checkStatus);
                     this.loadImages();
                 }
             });
+        },
+        /** Keep header Images badge in sync */
+        syncRootUpdateCount(status) {
+            if (!status || !this.$root) {
+                return;
+            }
+            if (typeof status.imageUpdateCount === "number") {
+                this.$root.imageUpdateCount = status.imageUpdateCount;
+            }
+            if (status.lastCheckAt) {
+                this.$root.imageUpdateLastCheckAt = status.lastCheckAt;
+            }
         },
         toggleSelectAll(e) {
             const checked = e.target.checked;
