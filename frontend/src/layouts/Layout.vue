@@ -34,11 +34,12 @@
                 </li>
 
                 <li v-if="$root.loggedIn" class="nav-item me-2">
-                    <router-link to="/images" class="nav-link">
-                        <font-awesome-icon icon="images" /> {{ $t("images") }}
+                    <router-link to="/images" class="nav-link images-nav-link">
+                        <font-awesome-icon icon="images" />
+                        <span>{{ $t("images") }}</span>
                         <span
                             v-if="$root.imageUpdateCount > 0"
-                            class="badge image-update-nav-badge ms-1"
+                            class="image-update-nav-badge"
                             :title="$t('updatesAvailable')"
                         >{{ $root.imageUpdateCount }}</span>
                     </router-link>
@@ -222,17 +223,27 @@ main {
     margin-right: 25px;
 }
 
-/* imtv: image update count on Images nav */
+/* imtv: image update count on Images nav — vertically centered with label */
+.images-nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
 .image-update-nav-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background-color: #f0ad4e;
-    color: #212529;
+    color: #000 !important;
     font-size: 11px;
     font-weight: 700;
-    min-width: 1.25em;
-    padding: 2px 6px;
+    min-width: 1.35em;
+    height: 1.35em;
+    padding: 0 6px;
     border-radius: 10px;
+    line-height: 1;
     vertical-align: middle;
-    line-height: 1.2;
 }
 
 .lost-connection {
