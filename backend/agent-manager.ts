@@ -26,7 +26,11 @@ export class AgentManager {
         return this._firstConnectTime;
     }
 
-    test(url : string, username : string, password : string) : Promise<void> {
+    /**
+     * Test login; returns agent display name from remote if advertised
+     * (imtv-lite DOCKGE_AGENT_NAME / primaryHostname).
+     */
+    test(url : string, username : string, password : string) : Promise<{ agentName?: string }> {
         return new Promise((resolve, reject) => {
             let obj = new URL(url);
             let endpoint = obj.host;
@@ -39,10 +43,18 @@ export class AgentManager {
                 reject(new Error("The Dockge URL already exists"));
             }
 
+            let remoteInfo : LooseObject = {};
+
             let client = io(url, {
                 reconnection: false,
                 extraHeaders: {
                     endpoint,
+                }
+            });
+
+            client.on("info", (res : LooseObject) => {
+                if (res && typeof res === "object") {
+                    remoteInfo = res;
                 }
             });
 
@@ -52,7 +64,13 @@ export class AgentManager {
                     password: password,
                 }, (res : LooseObject) => {
                     if (res.ok) {
-                        resolve();
+                        const agentName =
+                            (typeof remoteInfo.agentName === "string" && remoteInfo.agentName) ||
+                            (typeof remoteInfo.primaryHostname === "string" && remoteInfo.primaryHostname) ||
+                            undefined;
+                        resolve({
+                            agentName,
+                        });
                     } else {
                         reject(new Error(res.msg));
                     }
@@ -83,9 +101,30 @@ export class AgentManager {
         bean.url = url;
         bean.username = username;
         bean.password = password;
-        bean.name = name;
+        bean.name = name || "";
         await R.store(bean);
         return bean;
+    }
+
+    /**
+     * If Friendly Name is empty, fill from remote agentName once.
+     */
+    async fillAgentNameIfEmpty(endpoint: string, agentName: string) {
+        if (!endpoint || !agentName) {
+            return;
+        }
+        const list = await Agent.getAgentList();
+        const agent = list[endpoint];
+        if (!agent) {
+            return;
+        }
+        if (agent.name && String(agent.name).trim() !== "") {
+            return;
+        }
+        agent.name = agentName;
+        await R.store(agent);
+        log.info("agent-manager", `Filled agent friendly name from remote: ${endpoint} → ${agentName}`);
+        await this.sendAgentList();
     }
 
     /**
@@ -200,13 +239,25 @@ export class AgentManager {
             log.debug("agent-manager", res);
 
             // Disconnect if the version is lower than 1.4.0
-            if (!isDev && semver.satisfies(res.version, "< 1.4.0")) {
+            if (res?.version && !isDev && semver.satisfies(res.version, "< 1.4.0")) {
                 this.socket.emit("agentStatus", {
                     endpoint: endpoint,
                     status: "offline",
                     msg: `${endpoint}: Unsupported version: ` + res.version,
                 });
                 client.disconnect();
+                return;
+            }
+
+            // imtv: use agent machine name when main left Friendly Name blank
+            const remoteName =
+                (typeof res?.agentName === "string" && res.agentName) ||
+                (typeof res?.primaryHostname === "string" && res.primaryHostname) ||
+                "";
+            if (remoteName) {
+                this.fillAgentNameIfEmpty(endpoint, remoteName).catch((e) => {
+                    log.warn("agent-manager", "fillAgentNameIfEmpty: " + e);
+                });
             }
         });
 

@@ -19,8 +19,14 @@ export class ManageAgentSocketHandler extends SocketHandler {
 
                 let data = requestData as LooseObject;
                 let manager = socket.instanceManager;
-                await manager.test(data.url, data.username, data.password);
-                await manager.add(data.url, data.username, data.password, data.name);
+                // Probe login + read remote agentName (DOCKGE_AGENT_NAME on imtv-lite)
+                const probe = await manager.test(data.url, data.username, data.password);
+                let name = typeof data.name === "string" ? data.name.trim() : "";
+                if (!name && probe?.agentName) {
+                    name = probe.agentName;
+                    log.info("manage-agent-socket-handler", `Using remote agent name: ${name}`);
+                }
+                await manager.add(data.url, data.username, data.password, name);
 
                 // connect to the agent
                 manager.connect(data.url, data.username, data.password);

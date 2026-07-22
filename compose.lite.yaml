@@ -1,0 +1,25 @@
+# imtv-lite — 代理专用镜像（无 Web 面板）
+# 固定 project / container_name，避免更新时出现 93d55000… 前缀孤儿容器
+#
+# 主控: ghcr.io/imtv/dockge:imtv
+# 代理: ghcr.io/imtv/dockge:imtv-lite
+name: dockge-lite
+
+services:
+  dockge:
+    image: ghcr.io/imtv/dockge:imtv-lite
+    container_name: dockge-lite
+    restart: unless-stopped
+    ports:
+      - 5001:5001
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/app/data
+      # 绝对路径，左右一致
+      - /opt/stacks:/opt/stacks
+    environment:
+      - DOCKGE_STACKS_DIR=/opt/stacks
+      - DOCKGE_USERNAME=agent
+      - DOCKGE_PASSWORD=change-me-now
+      # 主控 Friendly Name 留空时会自动用这个名字
+      - DOCKGE_AGENT_NAME=node-2

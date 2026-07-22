@@ -149,6 +149,8 @@
     "dockgeAgent": "Dockge代理",
     "currentEndpoint": "当前",
     "addAgent": "添加代理",
+    "agentNameFromRemote": "留空则使用代理机主机名",
+    "agentNameFromRemoteHint": "留空时自动使用代理机 compose 里的 DOCKGE_AGENT_NAME（或 primaryHostname）。",
     "agentRemovedSuccessfully": "代理移除成功。",
     "removeAgent": "移除代理",
     "removeAgentMsg": "您确定要移除此代理？",

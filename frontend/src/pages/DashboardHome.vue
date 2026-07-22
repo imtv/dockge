@@ -95,7 +95,8 @@
 
                             <div class="mb-3">
                                 <label for="name" class="form-label">{{ $t("Friendly Name") }}</label>
-                                <input id="name" v-model="agent.name" type="text" class="form-control" optional>
+                                <input id="name" v-model="agent.name" type="text" class="form-control" optional :placeholder="$t('agentNameFromRemote')">
+                                <div class="form-text">{{ $t("agentNameFromRemoteHint") }}</div>
                             </div>
 
                             <button type="submit" class="btn btn-primary" :disabled="connectingAgent">

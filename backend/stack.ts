@@ -468,11 +468,73 @@ export class Stack {
             return exitCode;
         }
 
-        exitCode = await Terminal.exec(this.server, socket, terminalName, "docker", this.getComposeOptions("up", "-d", "--remove-orphans"), this.path);
+        // Self-update: this stack includes the running Dockge container.
+        // Running `compose up` inside the container gets SIGKILL mid-recreate and leaves
+        // orphan names like `93d550008a19_project-service-1`. Use a one-shot docker CLI
+        // helper on the host socket so recreate finishes after we die.
+        if (await this.containsSelfContainer()) {
+            log.info("update", `Stack ${this.name} includes this Dockge instance — self-update via helper container`);
+            exitCode = await this.composeUpViaHelper(socket, terminalName);
+        } else {
+            exitCode = await Terminal.exec(this.server, socket, terminalName, "docker", this.getComposeOptions("up", "-d", "--remove-orphans"), this.path);
+        }
         if (exitCode !== 0) {
             throw new Error("Failed to restart, please check the terminal output for more information.");
         }
         return exitCode;
+    }
+
+    /**
+     * Whether any container of this stack is the current process's container
+     * (Docker sets HOSTNAME to the container id).
+     */
+    async containsSelfContainer() : Promise<boolean> {
+        const selfId = (process.env.HOSTNAME || "").trim();
+        if (!selfId || selfId.length < 6) {
+            return false;
+        }
+        try {
+            const res = await childProcessAsync.spawn("docker", this.getComposeOptions("ps", "-aq"), {
+                cwd: this.path,
+                encoding: "utf-8",
+            });
+            const ids = (res.stdout?.toString() || "").split("\n").map((s) => s.trim()).filter(Boolean);
+            for (const id of ids) {
+                const bare = id.replace(/^sha256:/, "");
+                if (
+                    bare.startsWith(selfId) ||
+                    selfId.startsWith(bare.slice(0, 12)) ||
+                    bare.slice(0, 12) === selfId.slice(0, 12)
+                ) {
+                    return true;
+                }
+            }
+        } catch (e) {
+            log.debug("update", "containsSelfContainer: " + e);
+        }
+        return false;
+    }
+
+    /**
+     * Run `docker compose up -d` from a short-lived helper container so the
+     * agent can be replaced without orphaning the compose operation.
+     */
+    async composeUpViaHelper(socket: DockgeSocket, terminalName: string) : Promise<number> {
+        const absPath = this.fullPath;
+        const composeFile = this._composeFileName;
+        // Host path must equal in-container path (Dockge stacks mount convention).
+        const args = [
+            "run", "--rm",
+            "-v", "/var/run/docker.sock:/var/run/docker.sock",
+            "-v", `${absPath}:${absPath}`,
+            "-w", absPath,
+            // Same CLI family Dockge uses; public on Docker Hub
+            "docker:27-cli",
+            "compose",
+            "-f", composeFile,
+            "up", "-d", "--remove-orphans",
+        ];
+        return await Terminal.exec(this.server, socket, terminalName, "docker", args, absPath);
     }
 
     async joinCombinedTerminal(socket: DockgeSocket) {
