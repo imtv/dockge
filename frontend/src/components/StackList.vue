@@ -61,7 +61,7 @@
                         <font-awesome-icon v-show="!closedAgents.get(agent.endpoint)" icon="chevron-circle-down" />
                     </span>
                     <span v-if="agent.endpoint === 'current'">{{ $t("currentEndpoint") }}</span>
-                    <span v-else>{{ agent.endpoint }}</span>
+                    <span v-else>{{ agentGroupLabel(agent.endpoint) }}</span>
                 </div>
                 <StackListItem
                     v-for="(item, index) in agent.stacks"
@@ -313,6 +313,25 @@ export default {
          */
         clearSearchText() {
             this.searchText = "";
+        },
+        /**
+         * Agent group header: Friendly Name / DOCKGE_AGENT_NAME, else host:port
+         * @param {string} endpoint Agent endpoint
+         * @returns {string}
+         */
+        agentGroupLabel(endpoint) {
+            if (!endpoint || endpoint === "current") {
+                return this.$t("currentEndpoint");
+            }
+            const named = this.$root.endpointDisplayFunction?.(endpoint);
+            if (named) {
+                return named;
+            }
+            const agent = this.$root.agentList?.[endpoint];
+            if (agent?.name) {
+                return agent.name;
+            }
+            return endpoint;
         },
         /**
          * Update the StackList Filter
