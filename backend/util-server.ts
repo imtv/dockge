@@ -37,6 +37,10 @@ export interface Arguments {
 export interface Config extends Arguments {
     dataDir : string;
     stacksDir : string;
+    /** imtv-lite: agent-only mode (env bootstrap, minimal landing page) */
+    lite? : boolean;
+    /** imtv-lite: display name for this agent (not HTTP bind address) */
+    agentName? : string;
 }
 
 export function checkLogin(socket : DockgeSocket) {

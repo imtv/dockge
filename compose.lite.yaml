@@ -1,0 +1,29 @@
+# imtv-lite — agent-only Dockge
+# Deploy on remote machines; manage them from the main Dockge panel (Settings → Agents).
+#
+# Main host uses: ghcr.io/imtv/dockge:imtv
+# This agent uses: ghcr.io/imtv/dockge:imtv-lite
+services:
+  dockge-lite:
+    image: ghcr.io/imtv/dockge:imtv-lite
+    restart: unless-stopped
+    ports:
+      # Host Port : Container Port — open this to the main Dockge host
+      - 5001:5001
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/app/data
+      # Stacks Directory (full path, left === right)
+      - /opt/stacks:/opt/stacks
+    environment:
+      - DOCKGE_STACKS_DIR=/opt/stacks
+      # Agent-only mode
+      - DOCKGE_LITE=1
+      # Credentials used when the main Dockge adds this agent
+      - DOCKGE_USERNAME=agent
+      - DOCKGE_PASSWORD=change-me-now
+      # Display name shown as primary hostname on stacks (not HTTP bind address)
+      - DOCKGE_AGENT_NAME=node-2
+      # Optional: HTTP listen bind (default 0.0.0.0 in lite mode)
+      # - DOCKGE_HOSTNAME=0.0.0.0
+      # - DOCKGE_PORT=5001

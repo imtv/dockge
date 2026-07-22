@@ -39,6 +39,7 @@ import { ManageAgentSocketHandler } from "./socket-handlers/manage-agent-socket-
 import { Terminal } from "./terminal";
 import { imageUpdateChecker } from "./image-update-checker";
 import { getStackPortsMap } from "./stack-ports";
+import { bootstrapLiteAuth, readLiteEnv } from "./lite-bootstrap";
 
 export class DockgeServer {
     app : Express;
@@ -153,11 +154,23 @@ export class DockgeServer {
         this.config.sslCert = args.sslCert || process.env.DOCKGE_SSL_CERT || undefined;
         this.config.sslKeyPassphrase = args.sslKeyPassphrase || process.env.DOCKGE_SSL_KEY_PASSPHRASE || undefined;
         this.config.port = args.port || Number(process.env.DOCKGE_PORT) || 5001;
+        // DOCKGE_HOSTNAME = HTTP listen bind (e.g. 0.0.0.0), NOT agent display name
         this.config.hostname = args.hostname || process.env.DOCKGE_HOSTNAME || undefined;
         this.config.dataDir = args.dataDir || process.env.DOCKGE_DATA_DIR || "./data/";
         this.config.stacksDir = args.stacksDir || process.env.DOCKGE_STACKS_DIR || defaultStacksDir;
         this.config.enableConsole = args.enableConsole || process.env.DOCKGE_ENABLE_CONSOLE === "true" || false;
+        // imtv-lite
+        const liteEnv = readLiteEnv();
+        this.config.lite = liteEnv.lite;
+        this.config.agentName = liteEnv.agentName;
         this.stacksDir = this.config.stacksDir;
+
+        if (this.config.lite) {
+            log.info("server", "Mode: imtv-lite (agent only — wait for main Dockge to connect)");
+            if (this.config.agentName) {
+                log.info("server", "Agent name: " + this.config.agentName);
+            }
+        }
 
         log.debug("server", this.config);
 
@@ -194,7 +207,14 @@ export class DockgeServer {
             this.app.use(router.create(this.app, this));
         }
 
-        // Static files
+        // imtv-lite: minimal landing page at / (socket.io + API still work for main host)
+        if (this.config.lite) {
+            this.app.get([ "/", "/index.html" ], (_req, res) => {
+                res.type("html").send(this.buildLiteLandingHTML());
+            });
+        }
+
+        // Static files (full UI still available at other paths / for debugging)
         this.app.use("/", expressStaticGzip("frontend-dist", {
             enableBrotli: true,
         }));
@@ -379,20 +399,21 @@ export class DockgeServer {
 
         this.jwtSecret = jwtSecretBean.value;
 
-        const userCount = (await R.knex("user").count("id as count").first()).count;
-
-        log.debug("server", "User count: " + userCount);
-
-        // If there is no record in user table, it is a new Dockge instance, need to setup
-        if (userCount == 0) {
+        // imtv / imtv-lite: create or sync admin user from env (skip web setup)
+        const liteEnv = readLiteEnv();
+        this.needSetup = await bootstrapLiteAuth(liteEnv);
+        if (this.needSetup) {
             log.info("server", "No user, need setup");
-            this.needSetup = true;
+        } else if (this.config.lite) {
+            log.info("server", "Lite agent ready — add this URL on the main Dockge (Agents)");
         }
 
         // Listen
-        this.httpServer.listen(this.config.port, this.config.hostname, () => {
-            if (this.config.hostname) {
-                log.info( "server", `Listening on ${this.config.hostname}:${this.config.port}`);
+        // Lite default: bind all interfaces so the main host can reach the agent
+        const listenHost = this.config.hostname || (this.config.lite ? "0.0.0.0" : undefined);
+        this.httpServer.listen(this.config.port, listenHost, () => {
+            if (listenHost) {
+                log.info( "server", `Listening on ${listenHost}:${this.config.port}`);
             } else {
                 log.info("server", `Listening on ${this.config.port}`);
             }
@@ -453,9 +474,68 @@ export class DockgeServer {
             latestVersion: latestVersionProperty,
             isContainer,
             primaryHostname: await Settings.get("primaryHostname"),
+            // imtv-lite: let main host know this instance is agent-oriented
+            lite: !!this.config.lite,
+            agentName: this.config.agentName || undefined,
             //serverTimezone: await this.getTimezone(),
             //serverTimezoneOffset: this.getTimezoneOffset(),
         });
+    }
+
+    /**
+     * Minimal status page for imtv-lite agents (no full SPA required).
+     */
+    private buildLiteLandingHTML() : string {
+        const name = this.config.agentName || "dockge-lite";
+        const port = this.config.port;
+        const version = packageJSON.version;
+        return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dockge Lite — ${escapeHtml(name)}</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: #0d1117; color: #e6edf3;
+    }
+    .card {
+      max-width: 32rem; padding: 2rem 2.25rem; border-radius: 12px;
+      background: #161b22; border: 1px solid #30363d; box-shadow: 0 8px 24px rgba(0,0,0,.35);
+    }
+    h1 { margin: 0 0 .5rem; font-size: 1.35rem; font-weight: 650; }
+    .badge {
+      display: inline-block; font-size: .75rem; font-weight: 700; letter-spacing: .04em;
+      padding: .2rem .55rem; border-radius: 999px; background: #238636; color: #fff; margin-bottom: 1rem;
+    }
+    p { margin: .55rem 0; line-height: 1.5; color: #8b949e; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: .1rem .4rem; color: #79c0ff;
+    }
+    ul { margin: .75rem 0 0; padding-left: 1.2rem; color: #c9d1d9; }
+    li { margin: .35rem 0; }
+    a { color: #58a6ff; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">IMTV LITE · AGENT</div>
+    <h1>${escapeHtml(name)}</h1>
+    <p>This instance only exposes the Dockge agent port. Manage Docker from your <strong>main</strong> Dockge panel.</p>
+    <ul>
+      <li>Agent name: <code>${escapeHtml(name)}</code></li>
+      <li>Port: <code>${port}</code></li>
+      <li>Version: <code>${escapeHtml(String(version))}</code></li>
+      <li>Status: waiting for main host to connect (socket.io)</li>
+    </ul>
+    <p style="margin-top:1.25rem">On the main Dockge: <strong>Settings → Dockge Agents</strong> → add this machine’s URL, username and password (from compose env).</p>
+  </div>
+</body>
+</html>`;
     }
 
     /**
@@ -748,4 +828,12 @@ export class DockgeServer {
         return `${protocol}://${host}:${this.config.port}`;
     }
 
+}
+
+function escapeHtml(s : string) : string {
+    return s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
 }
