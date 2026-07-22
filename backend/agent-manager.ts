@@ -109,10 +109,12 @@ export class AgentManager {
     }
 
     /**
-     * If Friendly Name is empty, fill from remote agentName once.
+     * Display name always comes from the agent (DOCKGE_AGENT_NAME / primaryHostname).
+     * Main host no longer uses a separate Friendly Name.
+     * Empty remote name → clear so UI falls back to host:port.
      */
-    async fillAgentNameIfEmpty(endpoint: string, agentName: string) {
-        if (!endpoint || !agentName) {
+    async syncAgentNameFromRemote(endpoint: string, agentName: string) {
+        if (!endpoint) {
             return;
         }
         const list = await Agent.getAgentList();
@@ -120,12 +122,13 @@ export class AgentManager {
         if (!agent) {
             return;
         }
-        if (agent.name && String(agent.name).trim() !== "") {
+        const next = (agentName || "").trim();
+        if (String(agent.name || "").trim() === next) {
             return;
         }
-        agent.name = agentName;
+        agent.name = next;
         await R.store(agent);
-        log.info("agent-manager", `Filled agent friendly name from remote: ${endpoint} → ${agentName}`);
+        log.info("agent-manager", `Synced agent display name from remote: ${endpoint} → ${next || "(endpoint)"}`);
         await this.sendAgentList();
     }
 
@@ -253,16 +256,14 @@ export class AgentManager {
                 return;
             }
 
-            // imtv: use agent machine name when main left Friendly Name blank
+            // imtv: display name only from agent side (DOCKGE_AGENT_NAME / primaryHostname)
             const remoteName =
-                (typeof res?.agentName === "string" && res.agentName) ||
-                (typeof res?.primaryHostname === "string" && res.primaryHostname) ||
+                (typeof res?.agentName === "string" && res.agentName.trim()) ||
+                (typeof res?.primaryHostname === "string" && res.primaryHostname.trim()) ||
                 "";
-            if (remoteName) {
-                this.fillAgentNameIfEmpty(endpoint, remoteName).catch((e) => {
-                    log.warn("agent-manager", "fillAgentNameIfEmpty: " + e);
-                });
-            }
+            this.syncAgentNameFromRemote(endpoint, remoteName).catch((e) => {
+                log.warn("agent-manager", "syncAgentNameFromRemote: " + e);
+            });
         });
 
         this.agentSocketList[endpoint] = client;

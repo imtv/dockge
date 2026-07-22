@@ -48,21 +48,11 @@
                                 <span v-else class="badge bg-secondary me-2">{{ $t($root.agentStatusList[endpoint]) }}</span>
                             </template>
 
-                            <!-- Agent Display Name -->
+                            <!-- Display name: agent DOCKGE_AGENT_NAME only; else host:port -->
                             <template v-if="$root.agentStatusList[endpoint]">
-                                <span v-if="endpoint === '' && agentItem.name === ''" class="badge bg-secondary me-2">Current</span>
-                                <span v-else-if="agentItem.name === ''" :href="agentItem.url" class="me-2">{{ endpoint }}</span>
-                                <span v-else :href="agentItem.url" class="me-2">{{ agentItem.name }}</span>
+                                <span v-if="endpoint === ''" class="badge bg-secondary me-2">{{ $t("currentEndpoint") }}</span>
+                                <span v-else class="me-2">{{ agentDisplayName(endpoint, agentItem) }}</span>
                             </template>
-
-                            <!-- Edit Name  -->
-                            <font-awesome-icon v-if="agentItem.name !== ''" icon="pen-to-square" @click="showEditAgentNameDialog[agentItem.name] = !showEditAgentNameDialog[agentItem.Name]" />
-
-                            <!-- Edit Dialog -->
-                            <BModal v-model="showEditAgentNameDialog[agentItem.name]" :no-close-on-backdrop="true" :close-on-esc="true" :okTitle="$t('Update Name')" okVariant="info" @ok="updateName(agentItem.url, agentItem.updatedName)">
-                                <label for="Update Name" class="form-label">Current value: {{ $t(agentItem.name) }}</label>
-                                <input id="updatedName" v-model="agentItem.updatedName" type="text" class="form-control" optional>
-                            </BModal>
 
                             <!-- Remove Button -->
                             <font-awesome-icon v-if="endpoint !== ''" class="ms-2 remove-agent" icon="trash" @click="showRemoveAgentDialog[agentItem.url] = !showRemoveAgentDialog[agentItem.url]" />
@@ -91,12 +81,6 @@
                             <div class="mb-3">
                                 <label for="password" class="form-label">{{ $t("Password") }}</label>
                                 <input id="password" v-model="agent.password" type="password" class="form-control" required autocomplete="new-password">
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="name" class="form-label">{{ $t("Friendly Name") }}</label>
-                                <input id="name" v-model="agent.name" type="text" class="form-control" optional :placeholder="$t('agentNameFromRemote')">
-                                <div class="form-text">{{ $t("agentNameFromRemoteHint") }}</div>
                             </div>
 
                             <button type="submit" class="btn btn-primary" :disabled="connectingAgent">
@@ -139,14 +123,11 @@ export default {
             dockerRunCommand: "",
             showAgentForm: false,
             showRemoveAgentDialog: {},
-            showEditAgentNameDialog: {},
             connectingAgent: false,
             agent: {
                 url: "http://",
                 username: "",
                 password: "",
-                name: "",
-                updatedName: "",
             }
         };
     },
@@ -188,9 +169,22 @@ export default {
 
     methods: {
 
+        /** Agent-side name only; fallback host:port */
+        agentDisplayName(endpoint, agentItem) {
+            if (agentItem?.name && String(agentItem.name).trim() !== "") {
+                return agentItem.name;
+            }
+            return endpoint || agentItem?.url || "";
+        },
+
         addAgent() {
             this.connectingAgent = true;
-            this.$root.getSocket().emit("addAgent", this.agent, (res) => {
+            // No Friendly Name — name is taken from agent DOCKGE_AGENT_NAME on the server
+            this.$root.getSocket().emit("addAgent", {
+                url: this.agent.url,
+                username: this.agent.username,
+                password: this.agent.password,
+            }, (res) => {
                 this.$root.toastRes(res);
 
                 if (res.ok) {
@@ -216,19 +210,6 @@ export default {
 
                     // Remove the stack list and status list of the removed agent
                     delete this.$root.allAgentStackList[endpoint];
-                }
-            });
-        },
-
-        updateName(url, updatedName) {
-            this.$root.getSocket().emit("updateAgent", url, updatedName, (res) => {
-                this.$root.toastRes(res);
-
-                if (res.ok) {
-                    this.showAgentForm = false;
-                    this.agent = {
-                        updatedName: "",
-                    };
                 }
             });
         },

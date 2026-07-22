@@ -315,7 +315,7 @@ export default {
             this.searchText = "";
         },
         /**
-         * Agent group header: Friendly Name / DOCKGE_AGENT_NAME, else host:port
+         * Agent group header: agent-side name only, else host:port
          * @param {string} endpoint Agent endpoint
          * @returns {string}
          */
@@ -323,15 +323,7 @@ export default {
             if (!endpoint || endpoint === "current") {
                 return this.$t("currentEndpoint");
             }
-            const named = this.$root.endpointDisplayFunction?.(endpoint);
-            if (named) {
-                return named;
-            }
-            const agent = this.$root.agentList?.[endpoint];
-            if (agent?.name) {
-                return agent.name;
-            }
-            return endpoint;
+            return this.$root.endpointDisplayFunction?.(endpoint) || endpoint;
         },
         /**
          * Update the StackList Filter

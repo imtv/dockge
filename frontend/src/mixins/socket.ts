@@ -136,11 +136,14 @@ export default defineComponent({
     },
     methods: {
 
+        /**
+         * Display label for an agent endpoint.
+         * Prefer name synced from agent (DOCKGE_AGENT_NAME); else host:port.
+         */
         endpointDisplayFunction(endpoint : string) {
             if (!endpoint) {
                 return "";
             }
-            // agentList keys are usually the endpoint host:port
             const byKey = this.$data.agentList?.[endpoint];
             if (byKey) {
                 if (byKey["name"] && String(byKey["name"]).trim() !== "") {
@@ -149,9 +152,10 @@ export default defineComponent({
                 return endpoint;
             }
             for (const v of Object.values(this.$data.agentList || {})) {
-                if (endpoint === v["endpoint"]) {
-                    if (v["name"] && String(v["name"]).trim() !== "") {
-                        return v["name"];
+                if (endpoint === (v as { endpoint?: string })["endpoint"]) {
+                    const n = (v as { name?: string })["name"];
+                    if (n && String(n).trim() !== "") {
+                        return n;
                     }
                     return endpoint;
                 }
