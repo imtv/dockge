@@ -47,6 +47,8 @@ export class AgentManager {
 
             let client = io(url, {
                 reconnection: false,
+                // engine.io: allow large image-list ACKs from agent (types omit this on client)
+                ...({ maxHttpBufferSize: 50 * 1024 * 1024 } as object),
                 extraHeaders: {
                     endpoint,
                 }
@@ -185,6 +187,8 @@ export class AgentManager {
 
         log.info("agent-manager", "Connecting to the socket server: " + endpoint);
         let client = io(url, {
+            // engine.io: allow large image-list ACKs from agent (types omit this on client)
+            ...({ maxHttpBufferSize: 50 * 1024 * 1024 } as object),
             extraHeaders: {
                 endpoint,
             }

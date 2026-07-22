@@ -253,8 +253,10 @@ export class DockgeServer {
         }
 
         // Create Socket.io
+        // Image lists via agents can exceed the default 1MB packet limit
         this.io = new socketIO.Server(this.httpServer, {
             cors,
+            maxHttpBufferSize: 50 * 1024 * 1024,
             allowRequest: (req, callback) => {
                 let isOriginValid = true;
                 const bypass = isDev || process.env.UPTIME_KUMA_WS_ORIGIN_CHECK === "bypass";

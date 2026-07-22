@@ -283,15 +283,33 @@ export const imageUpdateChecker = new ImageUpdateChecker();
 /**
  * List local Docker images with usage info.
  */
-export async function listLocalImages(): Promise<LocalImageInfo[]> {
+/** Large hosts can dump multi‑MB `docker images` JSON; Node default maxBuffer is 1MB. */
+const DOCKER_SPAWN_MAX_BUFFER = 64 * 1024 * 1024;
+
+/**
+ * @param options.withInspect - per-image inspect for digests/size (slow). Default true for update checks.
+ *   UI list can pass false so huge agent hosts still return a full list quickly.
+ */
+export async function listLocalImages(options: { withInspect?: boolean } = {}): Promise<LocalImageInfo[]> {
+    const withInspect = options.withInspect !== false;
+
     const res = await childProcessAsync.spawn("docker", [
         "images",
+        // Include intermediate/untagged layers so list matches `docker images -a` expectations
+        "-a",
         "--format",
         "{{json .}}",
         "--no-trunc",
     ], {
         encoding: "utf-8",
+        maxBuffer: DOCKER_SPAWN_MAX_BUFFER,
     });
+
+    if (res.code && res.code !== 0) {
+        const err = (res.stderr?.toString() || res.stdout?.toString() || "docker images failed").trim();
+        log.error("image-update", "docker images failed: " + err);
+        throw new Error(err);
+    }
 
     if (!res.stdout) {
         return [];
@@ -300,6 +318,7 @@ export async function listLocalImages(): Promise<LocalImageInfo[]> {
     const lines = res.stdout.toString().split("\n").filter((l) => l.trim());
     const images: LocalImageInfo[] = [];
     const seen = new Set<string>();
+    let parseErrors = 0;
 
     for (const line of lines) {
         try {
@@ -337,57 +356,71 @@ export async function listLocalImages(): Promise<LocalImageInfo[]> {
             });
         } catch {
             // skip bad lines
+            parseErrors++;
         }
     }
 
-    // Fill digests via inspect (batch by unique id)
-    const uniqueIds = [ ...new Set(images.map((i) => i.id)) ];
-    const digestById = new Map<string, string[]>();
-    const createdById = new Map<string, number>();
-    const sizeById = new Map<string, number>();
-
-    await mapPool(uniqueIds, 8, async (id) => {
-        try {
-            const inspect = await childProcessAsync.spawn("docker", [
-                "image", "inspect", id,
-                "--format",
-                "{{json .RepoDigests}}|{{.Created}}|{{.Size}}",
-            ], { encoding: "utf-8" });
-
-            if (!inspect.stdout) {
-                return;
-            }
-            const raw = inspect.stdout.toString().trim();
-            const [ digestsJson, createdIso, sizeStr ] = raw.split("|");
-            const digests = JSON.parse(digestsJson) as string[];
-            digestById.set(id, digests || []);
-            if (createdIso) {
-                createdById.set(id, Date.parse(createdIso) / 1000);
-            }
-            if (sizeStr) {
-                sizeById.set(id, parseInt(sizeStr, 10) || 0);
-            }
-        } catch {
-            digestById.set(id, []);
-        }
-    });
+    if (parseErrors > 0) {
+        log.warn("image-update", `listLocalImages: skipped ${parseErrors} unparseable line(s), kept ${images.length}`);
+    }
+    log.debug("image-update", `listLocalImages: ${images.length} image row(s) from docker images -a`);
 
     // Containers using each image (more reliable than docker images Containers field)
     const usedImageIds = await getUsedImageIds();
 
     for (const img of images) {
-        img.repoDigests = digestById.get(img.id) || [];
-        if (createdById.has(img.id)) {
-            img.created = createdById.get(img.id)!;
-        }
-        if (sizeById.has(img.id)) {
-            img.size = sizeById.get(img.id)!;
-        }
         img.inUsed = usedImageIds.has(img.id) || usedImageIds.has(img.shortId) || [ ...usedImageIds ].some(
             (uid) => uid.startsWith(img.id) || img.id.startsWith(uid) || uid.includes(img.shortId)
         );
         if (img.inUsed && img.containers === 0) {
             img.containers = 1;
+        }
+    }
+
+    // Optional inspect: digests for registry compare + dangling name recovery
+    if (withInspect) {
+        const uniqueIds = [ ...new Set(images.map((i) => i.id)) ];
+        const digestById = new Map<string, string[]>();
+        const createdById = new Map<string, number>();
+        const sizeById = new Map<string, number>();
+
+        await mapPool(uniqueIds, 8, async (id) => {
+            try {
+                const inspect = await childProcessAsync.spawn("docker", [
+                    "image", "inspect", id,
+                    "--format",
+                    "{{json .RepoDigests}}|{{.Created}}|{{.Size}}",
+                ], {
+                    encoding: "utf-8",
+                    maxBuffer: DOCKER_SPAWN_MAX_BUFFER,
+                });
+
+                if (!inspect.stdout) {
+                    return;
+                }
+                const raw = inspect.stdout.toString().trim();
+                const [ digestsJson, createdIso, sizeStr ] = raw.split("|");
+                const digests = JSON.parse(digestsJson) as string[];
+                digestById.set(id, digests || []);
+                if (createdIso) {
+                    createdById.set(id, Date.parse(createdIso) / 1000);
+                }
+                if (sizeStr) {
+                    sizeById.set(id, parseInt(sizeStr, 10) || 0);
+                }
+            } catch {
+                digestById.set(id, []);
+            }
+        });
+
+        for (const img of images) {
+            img.repoDigests = digestById.get(img.id) || [];
+            if (createdById.has(img.id)) {
+                img.created = createdById.get(img.id)!;
+            }
+            if (sizeById.has(img.id)) {
+                img.size = sizeById.get(img.id)!;
+            }
         }
     }
 
@@ -466,7 +499,10 @@ async function listContainerImageBindings(): Promise<{ imageId: string; project:
     const result: { imageId: string; project: string }[] = [];
 
     try {
-        const idsRes = await childProcessAsync.spawn("docker", [ "ps", "-aq" ], { encoding: "utf-8" });
+        const idsRes = await childProcessAsync.spawn("docker", [ "ps", "-aq" ], {
+            encoding: "utf-8",
+            maxBuffer: DOCKER_SPAWN_MAX_BUFFER,
+        });
         const ids = (idsRes.stdout?.toString() || "").split("\n").map((s) => s.trim()).filter(Boolean);
         if (ids.length === 0) {
             return result;
@@ -478,7 +514,10 @@ async function listContainerImageBindings(): Promise<{ imageId: string; project:
             ...ids,
             "--format",
             "{{.Image}}\t{{index .Config.Labels \"com.docker.compose.project\"}}",
-        ], { encoding: "utf-8" });
+        ], {
+            encoding: "utf-8",
+            maxBuffer: DOCKER_SPAWN_MAX_BUFFER,
+        });
 
         if (!insp.stdout) {
             return result;

@@ -13,7 +13,9 @@ import {
 
 export class ImageManager {
     async listImages(): Promise<ImageListItem[]> {
-        const images = await listLocalImages();
+        // UI list: skip per-image inspect (slow on large hosts / agent hop).
+        // Update flags still come from imageUpdateChecker memory (last checkAll).
+        const images = await listLocalImages({ withInspect: false });
         return formatImageList(images, imageUpdateChecker);
     }
 
