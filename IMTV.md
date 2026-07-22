@@ -35,8 +35,8 @@
 
 适用：多台机器，只在一台跑完整面板，其它机器当 agent。
 
-**为何单独镜像：** `imtv-lite` 不是「同一镜像 + 一个 env」。  
-CI 用 Dockerfile **`target: lite`** 打包：不跑 `npm run build:frontend`、**不打进 `frontend-dist`/前端源码**，只含 `backend` + `common` + 生产 `node_modules`，并默认 `DOCKGE_LITE=1`。
+**为何单独镜像：** `imtv-lite` 不是「全量镜像 + 开关」。  
+CI 用 Dockerfile **`target: lite`** 打包：不跑 frontend、不打进 SPA，只含 agent 运行所需文件，并写入标记文件 `.imtv-agent`（进程自动按代理机运行，**compose 不用设 DOCKGE_LITE**）。
 
 | 对比 | 主控 `imtv` | 代理 `imtv-lite` |
 |------|-------------|------------------|
@@ -44,7 +44,7 @@ CI 用 Dockerfile **`target: lite`** 打包：不跑 `npm run build:frontend`、
 | Docker target | `release` | `lite` |
 | 前端 | 完整 SPA | **无**（仅一页 agent 状态 HTML） |
 | CI | 构建 frontend + 镜像 | **跳过 frontend**，直接 build lite |
-| 账号 | Web Setup 或已有库 | compose 环境变量预置 |
+| 账号 | Web Setup 或已有库 | compose：`USERNAME` / `PASSWORD` / `AGENT_NAME` |
 | 镜像更新检查 | 本机 | 本机（结果经 agent 推到主控） |
 | 谁连谁 | 主控 **主动连接** 代理 | 等待被连接 |
 
@@ -67,7 +67,6 @@ services:
       - /opt/stacks:/opt/stacks
     environment:
       - DOCKGE_STACKS_DIR=/opt/stacks
-      - DOCKGE_LITE=1
       - DOCKGE_USERNAME=agent
       - DOCKGE_PASSWORD=change-me-now
       - DOCKGE_AGENT_NAME=node-2
@@ -75,12 +74,13 @@ services:
 
 | 环境变量 | 说明 |
 |----------|------|
-| `DOCKGE_LITE=1` | 开启 lite 模式 |
 | `DOCKGE_USERNAME` | 主控添加代理时用的用户名 |
 | `DOCKGE_PASSWORD` | 密码（≥6 位；启动时会与库同步，可改 compose 后 recreate 轮换） |
 | `DOCKGE_AGENT_NAME` | 主机显示名 / primaryHostname（**不是**监听地址） |
-| `DOCKGE_HOSTNAME` | HTTP **监听 bind**（可选；lite 默认 `0.0.0.0`） |
+| `DOCKGE_HOSTNAME` | HTTP **监听 bind**（可选；代理镜像默认 `0.0.0.0`） |
 | `DOCKGE_PORT` | 端口，默认 5001 |
+
+> 无需 `DOCKGE_LITE`：`imtv-lite` 镜像自带 `.imtv-agent` 标记，始终是代理机。
 
 ### 主控添加代理
 

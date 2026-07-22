@@ -37,7 +37,7 @@ export interface Arguments {
 export interface Config extends Arguments {
     dataDir : string;
     stacksDir : string;
-    /** imtv-lite: agent-only mode (env bootstrap, minimal landing page) */
+    /** imtv-lite agent image (marker file / baked image), not a compose toggle */
     lite? : boolean;
     /** imtv-lite: display name for this agent (not HTTP bind address) */
     agentName? : string;

@@ -159,14 +159,14 @@ export class DockgeServer {
         this.config.dataDir = args.dataDir || process.env.DOCKGE_DATA_DIR || "./data/";
         this.config.stacksDir = args.stacksDir || process.env.DOCKGE_STACKS_DIR || defaultStacksDir;
         this.config.enableConsole = args.enableConsole || process.env.DOCKGE_ENABLE_CONSOLE === "true" || false;
-        // imtv-lite
+        // imtv-lite agent image (detected via /.imtv-agent marker — no compose toggle)
         const liteEnv = readLiteEnv();
-        this.config.lite = liteEnv.lite;
+        this.config.lite = liteEnv.isAgent;
         this.config.agentName = liteEnv.agentName;
         this.stacksDir = this.config.stacksDir;
 
         if (this.config.lite) {
-            log.info("server", "Mode: imtv-lite (agent only — wait for main Dockge to connect)");
+            log.info("server", "imtv-lite agent image — waiting for main Dockge to connect");
             if (this.config.agentName) {
                 log.info("server", "Agent name: " + this.config.agentName);
             }
@@ -179,11 +179,11 @@ export class DockgeServer {
         try {
             this.indexHTML = fs.readFileSync("./frontend-dist/index.html").toString();
         } catch (e) {
-            // Full UI not required for imtv-lite agent image (no frontend-dist)
+            // Agent image has no SPA; full image must ship frontend-dist
             if (this.config.lite || process.env.NODE_ENV === "development") {
                 this.indexHTML = "";
                 if (this.config.lite) {
-                    log.info("server", "Lite image: no frontend-dist (agent API only)");
+                    log.info("server", "Agent image: no web UI (socket API only)");
                 }
             } else {
                 log.error("server", "Error: Cannot find 'frontend-dist/index.html', did you install correctly?");
@@ -419,17 +419,16 @@ export class DockgeServer {
 
         this.jwtSecret = jwtSecretBean.value;
 
-        // imtv / imtv-lite: create or sync admin user from env (skip web setup)
+        // Agent image: create/sync user from compose env (no web setup)
         const liteEnv = readLiteEnv();
         this.needSetup = await bootstrapLiteAuth(liteEnv);
         if (this.needSetup) {
             log.info("server", "No user, need setup");
         } else if (this.config.lite) {
-            log.info("server", "Lite agent ready — add this URL on the main Dockge (Agents)");
+            log.info("server", "Agent ready — add this URL on the main Dockge (Settings → Agents)");
         }
 
-        // Listen
-        // Lite default: bind all interfaces so the main host can reach the agent
+        // Listen — agent image binds all interfaces so the main host can connect
         const listenHost = this.config.hostname || (this.config.lite ? "0.0.0.0" : undefined);
         this.httpServer.listen(this.config.port, listenHost, () => {
             if (listenHost) {
@@ -494,7 +493,7 @@ export class DockgeServer {
             latestVersion: latestVersionProperty,
             isContainer,
             primaryHostname: await Settings.get("primaryHostname"),
-            // imtv-lite: let main host know this instance is agent-oriented
+            // imtv-lite agent image identity
             lite: !!this.config.lite,
             agentName: this.config.agentName || undefined,
             //serverTimezone: await this.getTimezone(),
@@ -543,7 +542,7 @@ export class DockgeServer {
 </head>
 <body>
   <div class="card">
-    <div class="badge">IMTV LITE · AGENT</div>
+    <div class="badge">IMTV · AGENT</div>
     <h1>${escapeHtml(name)}</h1>
     <p>This instance only exposes the Dockge agent port. Manage Docker from your <strong>main</strong> Dockge panel.</p>
     <ul>

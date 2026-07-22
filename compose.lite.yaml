@@ -1,5 +1,5 @@
-# imtv-lite — 轻量代理镜像（无 Web 面板，仅 socket agent）
-# 镜像目标 Dockerfile target=lite，不含 frontend-dist
+# imtv-lite — 代理专用镜像（无 Web 面板，仅等主控连接）
+# image 本身就是 agent，无需 DOCKGE_LITE 开关
 #
 # 主控: ghcr.io/imtv/dockge:imtv
 # 代理: ghcr.io/imtv/dockge:imtv-lite
@@ -17,8 +17,6 @@ services:
       - /opt/stacks:/opt/stacks
     environment:
       - DOCKGE_STACKS_DIR=/opt/stacks
-      # 镜像已默认 DOCKGE_LITE=1；写出以便对照
-      - DOCKGE_LITE=1
       # 主控添加代理时使用的账号（启动时写入/同步）
       - DOCKGE_USERNAME=agent
       - DOCKGE_PASSWORD=change-me-now

@@ -49,16 +49,16 @@ COPY --chown=node:node ./package-lock.json ./package-lock.json
 COPY --chown=node:node ./tsconfig.json ./tsconfig.json
 COPY --chown=node:node ./backend ./backend
 COPY --chown=node:node ./common ./common
+# Marker file: process always runs as agent (no DOCKGE_LITE compose flag needed)
 RUN mkdir ./data \
+    && touch ./.imtv-agent \
     && mkdir -p ./frontend-dist \
     && printf '%s\n' \
-      'imtv-lite: agent image (no web UI).' \
+      'imtv-lite agent image (no web UI).' \
       'Connect from main Dockge: Settings → Agents' \
       > ./frontend-dist/README.txt
 
 ENV UV_USE_IO_URING=0
-# Baked in: always agent mode (compose can still set username/password/name)
-ENV DOCKGE_LITE=1
 
 VOLUME /app/data
 EXPOSE 5001
