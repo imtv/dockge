@@ -19,13 +19,14 @@
                     @click="selectHost(tab.endpoint)"
                 >
                     <span class="tab-label">{{ tab.label }}</span>
+                    <!-- All hosts get a dot: green=ok, yellow=updates, red/orange=offline/connecting -->
                     <span
-                        v-if="tab.endpoint !== ''"
                         class="tab-status-dot"
-                        :class="tab.status"
+                        :class="tabDotClass(tab)"
+                        :title="tabDotTitle(tab)"
                     ></span>
                     <span
-                        v-if="sectionUpdateCount(tab.endpoint) > 0"
+                        v-if="sectionUpdateCount(tab.endpoint) > 0 && tab.online"
                         class="tab-update-badge"
                         :title="$t('updatesAvailable')"
                     >{{ sectionUpdateCount(tab.endpoint) }}</span>
@@ -441,6 +442,32 @@ export default {
             }
             return (this.state(endpoint).imageList || []).filter((i) => i.needUpdate).length;
         },
+        /** Dot: offline/connecting take priority; else yellow if updates, green if ok */
+        tabDotClass(tab) {
+            if (tab.endpoint !== "" && tab.status === "offline") {
+                return "offline";
+            }
+            if (tab.endpoint !== "" && tab.status === "connecting") {
+                return "connecting";
+            }
+            if (tab.online && this.sectionUpdateCount(tab.endpoint) > 0) {
+                return "update";
+            }
+            return "online";
+        },
+        tabDotTitle(tab) {
+            if (tab.endpoint !== "" && tab.status === "offline") {
+                return this.$t("agentOffline");
+            }
+            if (tab.endpoint !== "" && tab.status === "connecting") {
+                return this.$t("connecting");
+            }
+            const n = this.sectionUpdateCount(tab.endpoint);
+            if (tab.online && n > 0) {
+                return this.$t("updatesAvailable") + (n ? ` (${n})` : "");
+            }
+            return this.$t("agentOnline");
+        },
         formatTime(ts) {
             if (!ts) {
                 return "";
@@ -645,20 +672,29 @@ export default {
 }
 
 .tab-status-dot {
-    width: 7px;
-    height: 7px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     background: #6c757d;
     flex-shrink: 0;
 
+    /* Healthy — no image updates */
     &.online {
         background: #4caf50;
     }
 
-    &.connecting {
+    /* Has registry updates */
+    &.update {
         background: #f0ad4e;
     }
 
+    /* Agent connecting */
+    &.connecting {
+        background: #f0ad4e;
+        opacity: 0.75;
+    }
+
+    /* Agent offline */
     &.offline {
         background: #dc3545;
     }
