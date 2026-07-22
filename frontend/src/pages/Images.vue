@@ -4,19 +4,84 @@
             {{ $t("images") }}
         </h1>
 
-        <!-- Global actions (all hosts) -->
+        <!-- Host switcher: Current + agents (only when multi-agent) -->
+        <ul v-if="showHostTabs" class="nav nav-pills host-tabs mb-3">
+            <li
+                v-for="tab in hostTabs"
+                :key="sectionKey(tab.endpoint)"
+                class="nav-item"
+            >
+                <button
+                    type="button"
+                    class="nav-link host-tab"
+                    :class="{ active: activeEndpoint === tab.endpoint }"
+                    :disabled="!tab.online && tab.endpoint !== ''"
+                    @click="selectHost(tab.endpoint)"
+                >
+                    <span class="tab-label">{{ tab.label }}</span>
+                    <span
+                        v-if="tab.endpoint !== ''"
+                        class="tab-status-dot"
+                        :class="tab.status"
+                    ></span>
+                    <span
+                        v-if="sectionUpdateCount(tab.endpoint) > 0"
+                        class="tab-update-badge"
+                        :title="$t('updatesAvailable')"
+                    >{{ sectionUpdateCount(tab.endpoint) }}</span>
+                </button>
+            </li>
+        </ul>
+
+        <!-- Toolbar: same as original — only for the selected host -->
         <div class="mb-3 toolbar">
-            <button class="btn btn-primary" :disabled="anyChecking || anyLoading" @click="checkAllUpdates">
-                <font-awesome-icon icon="cloud-arrow-down" class="me-1" :spin="anyChecking" />
-                {{ anyChecking ? $t("checkingUpdates") : $t("checkImageUpdates") }}
+            <button
+                class="btn btn-primary"
+                :disabled="!activeOnline || loading || checking"
+                @click="checkUpdates"
+            >
+                <font-awesome-icon icon="cloud-arrow-down" class="me-1" :spin="checking" />
+                {{ checking ? $t("checkingUpdates") : $t("checkImageUpdates") }}
             </button>
-            <button class="btn btn-normal" :disabled="anyLoading" @click="loadAllImages">
+            <button class="btn btn-normal" :disabled="!activeOnline || loading" @click="loadImages">
                 <font-awesome-icon icon="arrows-rotate" class="me-1" />
                 {{ $t("refresh") }}
             </button>
+            <button
+                class="btn btn-normal"
+                :disabled="!activeOnline || loading || unusedCount === 0"
+                @click="confirmPruneUnused"
+            >
+                <font-awesome-icon icon="trash" class="me-1" />
+                {{ $t("pruneUnusedImages") }}
+                <span v-if="unusedCount > 0" class="count-pill">{{ unusedCount }}</span>
+            </button>
+            <button
+                class="btn btn-normal"
+                :disabled="!activeOnline || loading || danglingCount === 0"
+                @click="confirmPruneDangling"
+            >
+                <font-awesome-icon icon="trash" class="me-1" />
+                {{ $t("pruneDanglingImages") }}
+                <span v-if="danglingCount > 0" class="count-pill">{{ danglingCount }}</span>
+            </button>
+            <button
+                v-if="selectedIds.length > 0"
+                class="btn btn-danger"
+                :disabled="!activeOnline || loading"
+                @click="confirmRemoveSelected"
+            >
+                <font-awesome-icon icon="trash" class="me-1" />
+                {{ $t("deleteSelected") }}
+                <span class="count-pill danger">{{ selectedIds.length }}</span>
+            </button>
+
+            <span v-if="checkStatus.lastCheckAt" class="meta-line">
+                {{ $t("lastChecked") }}: {{ formatTime(checkStatus.lastCheckAt) }}
+            </span>
         </div>
 
-        <!-- List panel: one section per host (never merge lists) -->
+        <!-- List panel — original structure, one host at a time -->
         <div class="shadow-box image-panel mb-3">
             <div class="list-header">
                 <div class="header-top">
@@ -55,190 +120,97 @@
                 </div>
             </div>
 
-            <div
-                v-for="section in imageSections"
-                :key="sectionKey(section.endpoint)"
-                class="agent-image-section"
-            >
-                <!-- Host header (only when multi-agent) -->
-                <div
-                    v-if="showAgentHeaders"
-                    class="agent-select"
-                    @click="toggleAgent(section.endpoint)"
-                >
-                    <span class="me-1">
-                        <font-awesome-icon v-show="isClosed(section.endpoint)" icon="chevron-circle-right" />
-                        <font-awesome-icon v-show="!isClosed(section.endpoint)" icon="chevron-circle-down" />
-                    </span>
-                    <span class="agent-label">{{ section.label }}</span>
-                    <span
-                        class="agent-status-dot"
-                        :class="section.status"
-                        :title="section.status"
-                    ></span>
-                    <span v-if="section.status !== 'online' && section.endpoint !== ''" class="agent-offline-text">
-                        ({{ $t(section.status === 'connecting' ? 'connecting' : 'agentOffline') }})
-                    </span>
-                    <span
-                        v-if="sectionUpdateCount(section.endpoint) > 0"
-                        class="agent-update-badge"
-                        :title="$t('updatesAvailable')"
-                    >{{ sectionUpdateCount(section.endpoint) }}</span>
-                    <span class="agent-image-count">
-                        {{ sectionImageCount(section.endpoint) }}
-                    </span>
+            <div v-if="!activeOnline && activeEndpoint !== ''" class="empty-state">
+                {{ $t("agentOffline") }}
+            </div>
+            <div v-else-if="loading && imageList.length === 0" class="empty-state">
+                {{ $t("loading") }}...
+            </div>
+            <div v-else-if="filteredList.length === 0" class="empty-state">
+                {{ $t("noImages") }}
+            </div>
+            <div v-else class="image-list">
+                <div class="image-row select-all-row">
+                    <label class="row-check">
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            :checked="allSelectableSelected"
+                            @change="toggleSelectAll"
+                        >
+                    </label>
+                    <div class="row-main muted-label">
+                        {{ $t("imageName") }}
+                    </div>
+                    <div class="row-id muted-label">{{ $t("imageId") }}</div>
+                    <div class="row-meta muted-label">{{ $t("size") }}</div>
+                    <div class="row-created muted-label">{{ $t("created") }}</div>
+                    <div class="row-status muted-label">{{ $t("status") }}</div>
+                    <div class="row-actions muted-label">{{ $t("actions") }}</div>
                 </div>
 
-                <div v-show="!showAgentHeaders || !isClosed(section.endpoint)" class="section-body">
-                    <!-- Per-host toolbar: actions only affect this host -->
-                    <div class="section-toolbar">
-                        <button
-                            class="btn btn-sm btn-primary"
-                            :disabled="!section.online || isChecking(section.endpoint) || isLoading(section.endpoint)"
-                            @click="checkUpdates(section.endpoint)"
+                <div
+                    v-for="img in filteredList"
+                    :key="img.id + img.name + img.tag"
+                    class="image-row"
+                    :class="{ disabled: img.inUsed }"
+                >
+                    <label class="row-check">
+                        <input
+                            v-model="selectedMap[img.id]"
+                            class="form-check-input"
+                            type="checkbox"
+                            :disabled="img.inUsed"
+                            :title="img.inUsed ? $t('imageInUse') : ''"
                         >
-                            <font-awesome-icon
-                                icon="cloud-arrow-down"
-                                class="me-1"
-                                :spin="isChecking(section.endpoint)"
-                            />
-                            {{ isChecking(section.endpoint) ? $t("checkingUpdates") : $t("checkImageUpdates") }}
-                        </button>
-                        <button
-                            class="btn btn-sm btn-normal"
-                            :disabled="!section.online || isLoading(section.endpoint)"
-                            @click="loadImages(section.endpoint)"
-                        >
-                            <font-awesome-icon icon="arrows-rotate" class="me-1" />
-                            {{ $t("refresh") }}
-                        </button>
-                        <button
-                            class="btn btn-sm btn-normal"
-                            :disabled="!section.online || isLoading(section.endpoint) || unusedCount(section.endpoint) === 0"
-                            @click="confirmPruneUnused(section.endpoint)"
-                        >
-                            <font-awesome-icon icon="trash" class="me-1" />
-                            {{ $t("pruneUnusedImages") }}
-                            <span v-if="unusedCount(section.endpoint) > 0" class="count-pill">{{ unusedCount(section.endpoint) }}</span>
-                        </button>
-                        <button
-                            class="btn btn-sm btn-normal"
-                            :disabled="!section.online || isLoading(section.endpoint) || danglingCount(section.endpoint) === 0"
-                            @click="confirmPruneDangling(section.endpoint)"
-                        >
-                            <font-awesome-icon icon="trash" class="me-1" />
-                            {{ $t("pruneDanglingImages") }}
-                            <span v-if="danglingCount(section.endpoint) > 0" class="count-pill">{{ danglingCount(section.endpoint) }}</span>
-                        </button>
-                        <button
-                            v-if="selectedIds(section.endpoint).length > 0"
-                            class="btn btn-sm btn-danger"
-                            :disabled="!section.online || isLoading(section.endpoint)"
-                            @click="confirmRemoveSelected(section.endpoint)"
-                        >
-                            <font-awesome-icon icon="trash" class="me-1" />
-                            {{ $t("deleteSelected") }}
-                            <span class="count-pill danger">{{ selectedIds(section.endpoint).length }}</span>
-                        </button>
-                        <span v-if="lastChecked(section.endpoint)" class="meta-line">
-                            {{ $t("lastChecked") }}: {{ formatTime(lastChecked(section.endpoint)) }}
-                        </span>
-                    </div>
-
-                    <div v-if="!section.online && section.endpoint !== ''" class="empty-state">
-                        {{ $t("agentOffline") }}
-                    </div>
-                    <div v-else-if="isLoading(section.endpoint) && sectionImages(section.endpoint).length === 0" class="empty-state">
-                        {{ $t("loading") }}...
-                    </div>
-                    <div v-else-if="filteredList(section.endpoint).length === 0" class="empty-state">
-                        {{ $t("noImages") }}
-                    </div>
-                    <div v-else class="image-list">
-                        <div class="image-row select-all-row">
-                            <label class="row-check">
-                                <input
-                                    class="form-check-input"
-                                    type="checkbox"
-                                    :checked="allSelectableSelected(section.endpoint)"
-                                    @change="toggleSelectAll(section.endpoint, $event)"
-                                >
-                            </label>
-                            <div class="row-main muted-label">
-                                {{ $t("imageName") }}
-                            </div>
-                            <div class="row-id muted-label">{{ $t("imageId") }}</div>
-                            <div class="row-meta muted-label">{{ $t("size") }}</div>
-                            <div class="row-created muted-label">{{ $t("created") }}</div>
-                            <div class="row-status muted-label">{{ $t("status") }}</div>
-                            <div class="row-actions muted-label">{{ $t("actions") }}</div>
+                    </label>
+                    <div class="row-main">
+                        <div class="title-line">
+                            <span class="name">{{ displayImageName(img) }}</span>
+                            <span class="tag">:{{ displayImageTag(img) }}</span>
+                            <span v-if="img.dangling" class="badge dangling-badge ms-2">{{ $t("dangling") }}</span>
+                            <span v-if="img.needUpdate" class="badge update-badge ms-2">{{ $t("update") }}</span>
                         </div>
-
-                        <div
-                            v-for="img in filteredList(section.endpoint)"
-                            :key="sectionKey(section.endpoint) + '|' + img.id + '|' + img.name + '|' + img.tag"
-                            class="image-row"
-                            :class="{ disabled: img.inUsed }"
-                        >
-                            <label class="row-check">
-                                <input
-                                    class="form-check-input"
-                                    type="checkbox"
-                                    :checked="!!selectedMapFor(section.endpoint)[img.id]"
-                                    :disabled="img.inUsed"
-                                    :title="img.inUsed ? $t('imageInUse') : ''"
-                                    @change="setSelected(section.endpoint, img.id, $event.target.checked)"
-                                >
-                            </label>
-                            <div class="row-main">
-                                <div class="title-line">
-                                    <span class="name">{{ displayImageName(img) }}</span>
-                                    <span class="tag">:{{ displayImageTag(img) }}</span>
-                                    <span v-if="img.dangling" class="badge dangling-badge ms-2">{{ $t("dangling") }}</span>
-                                    <span v-if="img.needUpdate" class="badge update-badge ms-2">{{ $t("update") }}</span>
-                                </div>
-                                <div class="mobile-meta">
-                                    <span class="mobile-meta-item">{{ img.sizeFormat }}</span>
-                                    <span class="mobile-meta-item id-chip">{{ img.shortId }}</span>
-                                    <span
-                                        v-if="img.inUsed"
-                                        class="status-pill active"
-                                    >{{ $t("inUse") }}</span>
-                                    <span
-                                        v-else-if="img.dangling"
-                                        class="status-pill dangling"
-                                    >{{ $t("dangling") }}</span>
-                                    <span
-                                        v-else
-                                        class="status-pill unused"
-                                    >{{ $t("unused") }}</span>
-                                </div>
-                            </div>
-                            <div class="row-id">
-                                <code class="id-chip">{{ img.shortId }}</code>
-                            </div>
-                            <div class="row-meta">
-                                {{ img.sizeFormat }}
-                            </div>
-                            <div class="row-created">
-                                {{ img.createTime || "—" }}
-                            </div>
-                            <div class="row-status">
-                                <span v-if="img.inUsed" class="status-pill active">{{ $t("inUse") }}</span>
-                                <span v-else class="status-pill unused">{{ $t("unused") }}</span>
-                                <span v-if="img.dangling" class="status-pill dangling ms-1">{{ $t("dangling") }}</span>
-                            </div>
-                            <div class="row-actions">
-                                <button
-                                    class="btn btn-sm btn-normal delete-btn"
-                                    :disabled="img.inUsed || isLoading(section.endpoint)"
-                                    :title="img.inUsed ? $t('imageInUse') : $t('deleteImage')"
-                                    @click="confirmRemoveOne(section.endpoint, img)"
-                                >
-                                    <font-awesome-icon icon="trash" />
-                                </button>
-                            </div>
+                        <div class="mobile-meta">
+                            <span class="mobile-meta-item">{{ img.sizeFormat }}</span>
+                            <span class="mobile-meta-item id-chip">{{ img.shortId }}</span>
+                            <span
+                                v-if="img.inUsed"
+                                class="status-pill active"
+                            >{{ $t("inUse") }}</span>
+                            <span
+                                v-else-if="img.dangling"
+                                class="status-pill dangling"
+                            >{{ $t("dangling") }}</span>
+                            <span
+                                v-else
+                                class="status-pill unused"
+                            >{{ $t("unused") }}</span>
                         </div>
+                    </div>
+                    <div class="row-id">
+                        <code class="id-chip">{{ img.shortId }}</code>
+                    </div>
+                    <div class="row-meta">
+                        {{ img.sizeFormat }}
+                    </div>
+                    <div class="row-created">
+                        {{ img.createTime || "—" }}
+                    </div>
+                    <div class="row-status">
+                        <span v-if="img.inUsed" class="status-pill active">{{ $t("inUse") }}</span>
+                        <span v-else class="status-pill unused">{{ $t("unused") }}</span>
+                        <span v-if="img.dangling" class="status-pill dangling ms-1">{{ $t("dangling") }}</span>
+                    </div>
+                    <div class="row-actions">
+                        <button
+                            class="btn btn-sm btn-normal delete-btn"
+                            :disabled="img.inUsed || loading"
+                            :title="img.inUsed ? $t('imageInUse') : $t('deleteImage')"
+                            @click="confirmRemoveOne(img)"
+                        >
+                            <font-awesome-icon icon="trash" />
+                        </button>
                     </div>
                 </div>
             </div>
@@ -270,26 +242,25 @@ export default {
     },
     data() {
         return {
-            /** endpoint -> state (lists never merged) */
+            /** Currently selected host endpoint ("" = current) */
+            activeEndpoint: "",
+            /** Cache per host — lists never merged */
             byEndpoint: {},
             searchText: "",
             filterUnusedOnly: false,
             filterDanglingOnly: false,
             filterUpdateOnly: false,
-            closedAgents: {},
             confirmMessage: "",
             pendingAction: null,
         };
     },
     computed: {
-        showAgentHeaders() {
+        showHostTabs() {
             return this.$root.agentCount > 1;
         },
-        /** One section per known agent; local "" first; lists stay separate */
-        imageSections() {
+        hostTabs() {
             const list = this.$root.agentList || {};
             const endpoints = Object.keys(list);
-            // Ensure local host always present even before agentList arrives
             if (!endpoints.includes("")) {
                 endpoints.unshift("");
             } else {
@@ -303,7 +274,6 @@ export default {
                     return a.localeCompare(b);
                 });
             }
-
             return endpoints.map((endpoint) => {
                 const agent = list[endpoint] || {};
                 const status = endpoint === ""
@@ -317,119 +287,39 @@ export default {
                 };
             });
         },
-        anyLoading() {
-            return Object.values(this.byEndpoint).some((s) => s && s.loading);
+        activeOnline() {
+            if (this.activeEndpoint === "") {
+                return true;
+            }
+            return this.$root.agentStatusList[this.activeEndpoint] === "online";
         },
-        anyChecking() {
-            return Object.values(this.byEndpoint).some((s) => s && s.checking);
+        activeState() {
+            return this.state(this.activeEndpoint);
         },
-    },
-    watch: {
-        // Reload when agent list or online status changes
-        "$root.agentList": {
-            deep: true,
-            handler() {
-                this.loadAllImages();
+        imageList() {
+            return this.activeState.imageList || [];
+        },
+        loading() {
+            return !!this.activeState.loading;
+        },
+        checking() {
+            return !!this.activeState.checking;
+        },
+        checkStatus() {
+            return this.activeState.checkStatus || {};
+        },
+        selectedMap: {
+            get() {
+                return this.activeState.selectedMap || {};
+            },
+            set(map) {
+                const st = this.ensureState(this.activeEndpoint);
+                st.selectedMap = map;
+                this.touchState(this.activeEndpoint, st);
             },
         },
-        "$root.agentStatusList": {
-            deep: true,
-            handler() {
-                // Only fetch newly online agents that we don't have yet
-                for (const section of this.imageSections) {
-                    if (section.online && !this.byEndpoint[this.sectionKey(section.endpoint)]) {
-                        this.loadImages(section.endpoint);
-                    }
-                }
-            },
-        },
-    },
-    mounted() {
-        this.loadAllImages();
-    },
-    methods: {
-        sectionKey(endpoint) {
-            return endpoint === "" || endpoint == null ? "__local__" : endpoint;
-        },
-        ensureState(endpoint) {
-            const key = this.sectionKey(endpoint);
-            if (!this.byEndpoint[key]) {
-                // Vue 3: direct assign is reactive; keep pattern simple for both
-                this.byEndpoint = {
-                    ...this.byEndpoint,
-                    [key]: emptyEndpointState(),
-                };
-            }
-            return this.byEndpoint[key];
-        },
-        state(endpoint) {
-            return this.byEndpoint[this.sectionKey(endpoint)] || emptyEndpointState();
-        },
-        endpointLabel(endpoint, agent) {
-            if (!endpoint) {
-                return this.$t("currentEndpoint");
-            }
-            const named = this.$root.endpointDisplayFunction?.(endpoint);
-            if (named) {
-                return named;
-            }
-            if (agent?.name) {
-                return agent.name;
-            }
-            return agent?.url || endpoint;
-        },
-        isClosed(endpoint) {
-            return !!this.closedAgents[this.sectionKey(endpoint)];
-        },
-        toggleAgent(endpoint) {
-            const key = this.sectionKey(endpoint);
-            this.closedAgents = {
-                ...this.closedAgents,
-                [key]: !this.closedAgents[key],
-            };
-        },
-        isLoading(endpoint) {
-            return !!this.state(endpoint).loading;
-        },
-        isChecking(endpoint) {
-            return !!this.state(endpoint).checking;
-        },
-        sectionImages(endpoint) {
-            return this.state(endpoint).imageList || [];
-        },
-        sectionImageCount(endpoint) {
-            return this.sectionImages(endpoint).length;
-        },
-        sectionUpdateCount(endpoint) {
-            const st = this.state(endpoint).checkStatus;
-            if (st && typeof st.imageUpdateCount === "number") {
-                return st.imageUpdateCount;
-            }
-            return this.sectionImages(endpoint).filter((i) => i.needUpdate).length;
-        },
-        lastChecked(endpoint) {
-            return this.state(endpoint).checkStatus?.lastCheckAt || 0;
-        },
-        selectedMapFor(endpoint) {
-            return this.state(endpoint).selectedMap || {};
-        },
-        setSelected(endpoint, id, checked) {
-            const st = this.ensureState(endpoint);
-            st.selectedMap = {
-                ...st.selectedMap,
-                [id]: checked,
-            };
-            this.touchState(endpoint, st);
-        },
-        touchState(endpoint, st) {
-            const key = this.sectionKey(endpoint);
-            this.byEndpoint = {
-                ...this.byEndpoint,
-                [key]: st,
-            };
-        },
-        filteredList(endpoint) {
-            let list = this.sectionImages(endpoint);
+        filteredList() {
+            let list = this.imageList;
             if (this.searchText) {
                 const q = this.searchText.toLowerCase();
                 list = list.filter((img) =>
@@ -456,23 +346,96 @@ export default {
             }
             return list;
         },
-        unusedCount(endpoint) {
-            return this.sectionImages(endpoint).filter((img) => !img.inUsed).length;
+        unusedCount() {
+            return this.imageList.filter((img) => !img.inUsed).length;
         },
-        danglingCount(endpoint) {
-            return this.sectionImages(endpoint).filter((img) => img.dangling).length;
+        danglingCount() {
+            return this.imageList.filter((img) => img.dangling).length;
         },
-        selectedIds(endpoint) {
-            const map = this.selectedMapFor(endpoint);
-            return Object.keys(map).filter((id) => map[id]);
+        selectedIds() {
+            return Object.keys(this.selectedMap).filter((id) => this.selectedMap[id]);
         },
-        selectableIds(endpoint) {
-            return this.filteredList(endpoint).filter((img) => !img.inUsed).map((img) => img.id);
+        selectableIds() {
+            return this.filteredList.filter((img) => !img.inUsed).map((img) => img.id);
         },
-        allSelectableSelected(endpoint) {
-            const ids = this.selectableIds(endpoint);
-            const map = this.selectedMapFor(endpoint);
-            return ids.length > 0 && ids.every((id) => map[id]);
+        allSelectableSelected() {
+            return this.selectableIds.length > 0 && this.selectableIds.every((id) => this.selectedMap[id]);
+        },
+    },
+    watch: {
+        "$root.agentList": {
+            deep: true,
+            handler() {
+                // Keep selection valid if agent removed
+                const ok = this.hostTabs.some((t) => t.endpoint === this.activeEndpoint);
+                if (!ok) {
+                    this.activeEndpoint = "";
+                }
+            },
+        },
+        activeEndpoint() {
+            // Load when switching tab if empty / offline handled in loadImages
+            if (this.activeOnline) {
+                this.loadImages();
+            }
+        },
+    },
+    mounted() {
+        this.loadImages();
+        // Prefetch update counts for tab badges (online agents only)
+        for (const tab of this.hostTabs) {
+            if (tab.endpoint !== this.activeEndpoint && tab.online) {
+                this.loadImagesFor(tab.endpoint);
+            }
+        }
+    },
+    methods: {
+        sectionKey(endpoint) {
+            return endpoint === "" || endpoint == null ? "__local__" : endpoint;
+        },
+        ensureState(endpoint) {
+            const key = this.sectionKey(endpoint);
+            if (!this.byEndpoint[key]) {
+                this.byEndpoint = {
+                    ...this.byEndpoint,
+                    [key]: emptyEndpointState(),
+                };
+            }
+            return this.byEndpoint[key];
+        },
+        state(endpoint) {
+            return this.byEndpoint[this.sectionKey(endpoint)] || emptyEndpointState();
+        },
+        touchState(endpoint, st) {
+            const key = this.sectionKey(endpoint);
+            this.byEndpoint = {
+                ...this.byEndpoint,
+                [key]: st,
+            };
+        },
+        endpointLabel(endpoint, agent) {
+            if (!endpoint) {
+                return this.$t("currentEndpoint");
+            }
+            const named = this.$root.endpointDisplayFunction?.(endpoint);
+            if (named) {
+                return named;
+            }
+            if (agent?.name) {
+                return agent.name;
+            }
+            return agent?.url || endpoint;
+        },
+        selectHost(endpoint) {
+            this.activeEndpoint = endpoint;
+            // Clear filters selection noise when switching? keep filters, clear selection is automatic via per-endpoint map
+        },
+        sectionUpdateCount(endpoint) {
+            const st = this.state(endpoint).checkStatus;
+            if (st && typeof st.imageUpdateCount === "number") {
+                return st.imageUpdateCount;
+            }
+            return (this.state(endpoint).imageList || []).filter((i) => i.needUpdate).length;
         },
         formatTime(ts) {
             if (!ts) {
@@ -498,14 +461,10 @@ export default {
             }
             return img.tag;
         },
-        loadAllImages() {
-            for (const section of this.imageSections) {
-                if (section.online) {
-                    this.loadImages(section.endpoint);
-                }
-            }
+        loadImages() {
+            this.loadImagesFor(this.activeEndpoint);
         },
-        loadImages(endpoint) {
+        loadImagesFor(endpoint) {
             if (endpoint !== "" && this.$root.agentStatusList[endpoint] && this.$root.agentStatusList[endpoint] !== "online") {
                 return;
             }
@@ -531,20 +490,14 @@ export default {
                 } else {
                     cur.error = res?.msg || "error";
                     this.touchState(endpoint, cur);
-                    if (res) {
+                    if (res && endpoint === this.activeEndpoint) {
                         this.$root.toastRes(res);
                     }
                 }
             });
         },
-        checkAllUpdates() {
-            for (const section of this.imageSections) {
-                if (section.online) {
-                    this.checkUpdates(section.endpoint);
-                }
-            }
-        },
-        checkUpdates(endpoint) {
+        checkUpdates() {
+            const endpoint = this.activeEndpoint;
             if (endpoint !== "" && this.$root.agentStatusList[endpoint] && this.$root.agentStatusList[endpoint] !== "online") {
                 return;
             }
@@ -561,72 +514,61 @@ export default {
                     cur.checkStatus = res.checkStatus || {};
                     this.touchState(endpoint, cur);
                     this.syncRootUpdateCount();
-                    this.loadImages(endpoint);
+                    this.loadImagesFor(endpoint);
                 }
             });
         },
-        /** Push each host's count into root map; badge = sum (lists stay separate) */
         syncRootUpdateCount() {
             if (!this.$root?.setImageUpdateCountForEndpoint) {
                 return;
             }
-            for (const section of this.imageSections) {
-                if (!section.online) {
+            for (const tab of this.hostTabs) {
+                if (!tab.online) {
                     continue;
                 }
-                const st = this.state(section.endpoint).checkStatus || {};
+                const st = this.state(tab.endpoint).checkStatus || {};
                 if (typeof st.imageUpdateCount === "number") {
                     this.$root.setImageUpdateCountForEndpoint(
-                        section.endpoint || "",
+                        tab.endpoint || "",
                         st.imageUpdateCount,
                         st.lastCheckAt || 0,
                     );
                 }
             }
         },
-        toggleSelectAll(endpoint, e) {
+        toggleSelectAll(e) {
             const checked = e.target.checked;
-            const st = this.ensureState(endpoint);
+            const st = this.ensureState(this.activeEndpoint);
             const map = {
                 ...st.selectedMap,
             };
-            for (const id of this.selectableIds(endpoint)) {
+            for (const id of this.selectableIds) {
                 map[id] = checked;
             }
             st.selectedMap = map;
-            this.touchState(endpoint, st);
+            this.touchState(this.activeEndpoint, st);
         },
-        confirmRemoveOne(endpoint, img) {
+        confirmRemoveOne(img) {
             this.confirmMessage = this.$t("deleteImageConfirm", [ `${img.name}:${img.tag}` ]);
             this.pendingAction = {
                 type: "removeOne",
-                endpoint,
                 id: img.id,
             };
             this.$refs.confirmRemove.show();
         },
-        confirmRemoveSelected(endpoint) {
-            this.confirmMessage = this.$t("deleteSelectedImagesConfirm", [ this.selectedIds(endpoint).length ]);
-            this.pendingAction = {
-                type: "removeSelected",
-                endpoint,
-            };
+        confirmRemoveSelected() {
+            this.confirmMessage = this.$t("deleteSelectedImagesConfirm", [ this.selectedIds.length ]);
+            this.pendingAction = { type: "removeSelected" };
             this.$refs.confirmRemove.show();
         },
-        confirmPruneUnused(endpoint) {
+        confirmPruneUnused() {
             this.confirmMessage = this.$t("pruneUnusedImagesConfirm");
-            this.pendingAction = {
-                type: "pruneUnused",
-                endpoint,
-            };
+            this.pendingAction = { type: "pruneUnused" };
             this.$refs.confirmRemove.show();
         },
-        confirmPruneDangling(endpoint) {
+        confirmPruneDangling() {
             this.confirmMessage = this.$t("pruneDanglingImagesConfirm");
-            this.pendingAction = {
-                type: "pruneDangling",
-                endpoint,
-            };
+            this.pendingAction = { type: "pruneDangling" };
             this.$refs.confirmRemove.show();
         },
         doRemove() {
@@ -635,7 +577,7 @@ export default {
             if (!action) {
                 return;
             }
-            const endpoint = action.endpoint;
+            const endpoint = this.activeEndpoint;
             const st = this.ensureState(endpoint);
             st.loading = true;
             this.touchState(endpoint, st);
@@ -649,13 +591,13 @@ export default {
                     cur.selectedMap = {};
                     this.touchState(endpoint, cur);
                 }
-                this.loadImages(endpoint);
+                this.loadImagesFor(endpoint);
             };
 
             if (action.type === "removeOne") {
                 this.$root.emitAgent(endpoint, "removeImage", action.id, false, done);
             } else if (action.type === "removeSelected") {
-                this.$root.emitAgent(endpoint, "removeImages", this.selectedIds(endpoint), false, done);
+                this.$root.emitAgent(endpoint, "removeImages", this.selectedIds, false, done);
             } else if (action.type === "pruneUnused") {
                 this.$root.emitAgent(endpoint, "pruneImages", false, done);
             } else if (action.type === "pruneDangling") {
@@ -669,19 +611,75 @@ export default {
 <style lang="scss" scoped>
 @import "../styles/vars.scss";
 
+.host-tabs {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.host-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+
+    &:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+    }
+
+    .dark &.nav-link:not(.active) {
+        color: $dark-font-color3;
+    }
+}
+
+.tab-label {
+    max-width: 12em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tab-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #6c757d;
+    flex-shrink: 0;
+
+    &.online {
+        background: #4caf50;
+    }
+
+    &.connecting {
+        background: #f0ad4e;
+    }
+
+    &.offline {
+        background: #dc3545;
+    }
+}
+
+.tab-update-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    padding: 0 5px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    background: #f0ad4e;
+    color: #212529;
+    line-height: 1;
+}
+
 .toolbar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
-}
-
-.section-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 8px 10px 4px;
 }
 
 .count-pill {
@@ -706,96 +704,6 @@ export default {
     font-size: 13px;
     color: $dark-font-color3;
     margin-left: 0.25rem;
-}
-
-.agent-image-section {
-    border-bottom: 1px solid #dee2e6;
-
-    &:last-child {
-        border-bottom: 0;
-    }
-
-    .dark & {
-        border-bottom-color: $dark-border-color;
-    }
-}
-
-.agent-select {
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    color: $dark-font-color3;
-    padding: 10px 12px;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 6px;
-    user-select: none;
-
-    .dark & {
-        background-color: rgba(255, 255, 255, 0.02);
-    }
-
-    &:hover {
-        background-color: $highlight-white;
-
-        .dark & {
-            background-color: rgba(255, 255, 255, 0.04);
-        }
-    }
-}
-
-.agent-label {
-    color: inherit;
-}
-
-.agent-status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    display: inline-block;
-    background: #6c757d;
-
-    &.online {
-        background: #4caf50;
-    }
-
-    &.connecting {
-        background: #f0ad4e;
-    }
-
-    &.offline {
-        background: #dc3545;
-    }
-}
-
-.agent-offline-text {
-    font-size: 12px;
-    opacity: 0.8;
-}
-
-.agent-update-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 1.25rem;
-    height: 1.25rem;
-    padding: 0 6px;
-    border-radius: 10px;
-    font-size: 11px;
-    font-weight: 700;
-    background: #f0ad4e;
-    color: #212529;
-}
-
-.agent-image-count {
-    margin-left: auto;
-    font-size: 12px;
-    opacity: 0.75;
-}
-
-.section-body {
-    padding-bottom: 6px;
 }
 
 .update-badge {
@@ -905,13 +813,13 @@ export default {
 }
 
 .empty-state {
-    padding: 1.5rem 1rem;
+    padding: 2rem 1rem;
     text-align: center;
     color: $dark-font-color3;
 }
 
 .image-list {
-    max-height: calc(100vh - 320px);
+    max-height: calc(100vh - 280px);
     overflow-y: auto;
     padding: 6px 8px 10px;
 }
