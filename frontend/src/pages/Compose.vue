@@ -721,9 +721,12 @@ export default {
                 this.processing = false;
                 this.$root.toastRes(res);
                 // Badge follows server memory flags (cleared for this stack only — no recheck-all)
-                if (res && res.ok && res.checkStatus) {
-                    this.$root.imageUpdateCount = res.checkStatus.imageUpdateCount || 0;
-                    this.$root.imageUpdateLastCheckAt = res.checkStatus.lastCheckAt || 0;
+                if (res && res.ok && res.checkStatus && this.$root.setImageUpdateCountForEndpoint) {
+                    this.$root.setImageUpdateCountForEndpoint(
+                        this.endpoint || "",
+                        res.checkStatus.imageUpdateCount || 0,
+                        res.checkStatus.lastCheckAt || 0,
+                    );
                 }
             });
         },

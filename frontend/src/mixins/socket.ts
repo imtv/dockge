@@ -36,6 +36,8 @@ export default defineComponent({
             // imtv: images with registry updates (for nav badge)
             imageUpdateCount: 0,
             imageUpdateLastCheckAt: 0,
+            /** per-host counts so agents don't overwrite local (or each other) */
+            imageUpdateCountByEndpoint: {} as Record<string, number>,
 
             // All stack list from all agents
             allAgentStackList: {} as Record<string, object>,
@@ -265,10 +267,14 @@ export default defineComponent({
                         }
                         this.allAgentStackList[res.endpoint].stackList = res.stackList;
                     }
-                    // imtv: always sync nav badge (local agent has imageUpdateStatus)
+                    // imtv: per-endpoint update counts (never merge lists; badge is sum)
                     if (res.imageUpdateStatus && typeof res.imageUpdateStatus.imageUpdateCount === "number") {
-                        this.imageUpdateCount = res.imageUpdateStatus.imageUpdateCount;
-                        this.imageUpdateLastCheckAt = res.imageUpdateStatus.lastCheckAt || 0;
+                        const ep = res.endpoint || "";
+                        this.setImageUpdateCountForEndpoint(
+                            ep,
+                            res.imageUpdateStatus.imageUpdateCount,
+                            res.imageUpdateStatus.lastCheckAt || 0,
+                        );
                     }
                 }
             });
@@ -317,6 +323,28 @@ export default defineComponent({
 
         emitAgent(endpoint : string, eventName : string, ...args : unknown[]) {
             this.getSocket().emit("agent", endpoint, eventName, ...args);
+        },
+
+        /**
+         * Store image-update count for one host and recompute nav badge total.
+         * Lists stay per-host; only the badge number is summed.
+         */
+        setImageUpdateCountForEndpoint(endpoint : string, count : number, lastCheckAt = 0) {
+            const key = endpoint || "";
+            this.imageUpdateCountByEndpoint = {
+                ...this.imageUpdateCountByEndpoint,
+                [key]: count,
+            };
+            let total = 0;
+            for (const n of Object.values(this.imageUpdateCountByEndpoint)) {
+                if (typeof n === "number") {
+                    total += n;
+                }
+            }
+            this.imageUpdateCount = total;
+            if (lastCheckAt) {
+                this.imageUpdateLastCheckAt = lastCheckAt;
+            }
         },
 
         /**
