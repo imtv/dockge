@@ -40,7 +40,11 @@
                 :disabled="!activeOnline || loading || checking"
                 @click="checkUpdates"
             >
-                <font-awesome-icon icon="cloud-arrow-down" class="me-1" :spin="checking" />
+                <font-awesome-icon
+                    :icon="checking ? 'spinner' : 'cloud-arrow-down'"
+                    class="me-1"
+                    :spin="checking"
+                />
                 {{ checking ? $t("checkingUpdates") : $t("checkImageUpdates") }}
             </button>
             <button class="btn btn-normal" :disabled="!activeOnline || loading" @click="loadImages">
