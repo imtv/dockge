@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - imtv
+      - imtv-lite
       - master
     paths-ignore:
       - "*.md"
@@ -58,6 +59,7 @@ jobs:
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=imtv,enable=${{ github.ref_name == 'imtv' }}
+            type=raw,value=imtv-lite,enable=${{ github.ref_name == 'imtv-lite' }}
             type=sha,prefix=
             type=ref,event=branch
 
