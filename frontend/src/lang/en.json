@@ -112,6 +112,8 @@
     "connecting": "Connecting",
     "connect": "Connect",
     "addAgent": "Add Agent",
+    "agentNameFromRemote": "Leave empty to use agent hostname",
+    "agentNameFromRemoteHint": "If empty, uses DOCKGE_AGENT_NAME (or primary hostname) from the agent machine.",
     "agentAddedSuccessfully": "Agent added successfully.",
     "agentRemovedSuccessfully": "Agent removed successfully.",
     "removeAgent": "Remove Agent",

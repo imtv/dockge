@@ -1,14 +1,16 @@
-# imtv-lite — 代理专用镜像（无 Web 面板，仅等主控连接）
-# image 本身就是 agent，无需 DOCKGE_LITE 开关
+# imtv-lite — 代理专用镜像（无 Web 面板）
+# 固定 project / container_name，避免更新时出现 93d55000… 前缀孤儿容器
 #
 # 主控: ghcr.io/imtv/dockge:imtv
 # 代理: ghcr.io/imtv/dockge:imtv-lite
+name: dockge-lite
+
 services:
-  dockge-lite:
+  dockge:
     image: ghcr.io/imtv/dockge:imtv-lite
+    container_name: dockge-lite
     restart: unless-stopped
     ports:
-      # 对主控开放；主控 Settings → Agents 添加 http://本机IP:5001
       - 5001:5001
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -17,8 +19,7 @@ services:
       - /opt/stacks:/opt/stacks
     environment:
       - DOCKGE_STACKS_DIR=/opt/stacks
-      # 主控添加代理时使用的账号（启动时写入/同步）
       - DOCKGE_USERNAME=agent
       - DOCKGE_PASSWORD=change-me-now
-      # 显示名（不是 HTTP 监听地址）
+      # 主控 Friendly Name 留空时会自动用这个名字
       - DOCKGE_AGENT_NAME=node-2
