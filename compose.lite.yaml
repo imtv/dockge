@@ -1,29 +1,26 @@
-# imtv-lite — agent-only Dockge
-# Deploy on remote machines; manage them from the main Dockge panel (Settings → Agents).
+# imtv-lite — 轻量代理镜像（无 Web 面板，仅 socket agent）
+# 镜像目标 Dockerfile target=lite，不含 frontend-dist
 #
-# Main host uses: ghcr.io/imtv/dockge:imtv
-# This agent uses: ghcr.io/imtv/dockge:imtv-lite
+# 主控: ghcr.io/imtv/dockge:imtv
+# 代理: ghcr.io/imtv/dockge:imtv-lite
 services:
   dockge-lite:
     image: ghcr.io/imtv/dockge:imtv-lite
     restart: unless-stopped
     ports:
-      # Host Port : Container Port — open this to the main Dockge host
+      # 对主控开放；主控 Settings → Agents 添加 http://本机IP:5001
       - 5001:5001
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./data:/app/data
-      # Stacks Directory (full path, left === right)
+      # 绝对路径，左右一致
       - /opt/stacks:/opt/stacks
     environment:
       - DOCKGE_STACKS_DIR=/opt/stacks
-      # Agent-only mode
+      # 镜像已默认 DOCKGE_LITE=1；写出以便对照
       - DOCKGE_LITE=1
-      # Credentials used when the main Dockge adds this agent
+      # 主控添加代理时使用的账号（启动时写入/同步）
       - DOCKGE_USERNAME=agent
       - DOCKGE_PASSWORD=change-me-now
-      # Display name shown as primary hostname on stacks (not HTTP bind address)
+      # 显示名（不是 HTTP 监听地址）
       - DOCKGE_AGENT_NAME=node-2
-      # Optional: HTTP listen bind (default 0.0.0.0 in lite mode)
-      # - DOCKGE_HOSTNAME=0.0.0.0
-      # - DOCKGE_PORT=5001

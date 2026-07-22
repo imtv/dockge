@@ -179,8 +179,13 @@ export class DockgeServer {
         try {
             this.indexHTML = fs.readFileSync("./frontend-dist/index.html").toString();
         } catch (e) {
-            // "dist/index.html" is not necessary for development
-            if (process.env.NODE_ENV !== "development") {
+            // Full UI not required for imtv-lite agent image (no frontend-dist)
+            if (this.config.lite || process.env.NODE_ENV === "development") {
+                this.indexHTML = "";
+                if (this.config.lite) {
+                    log.info("server", "Lite image: no frontend-dist (agent API only)");
+                }
+            } else {
                 log.error("server", "Error: Cannot find 'frontend-dist/index.html', did you install correctly?");
                 process.exit(1);
             }
@@ -207,17 +212,32 @@ export class DockgeServer {
             this.app.use(router.create(this.app, this));
         }
 
-        // imtv-lite: minimal landing page at / (socket.io + API still work for main host)
+        // imtv-lite: minimal landing page only (no SPA / no static frontend)
         if (this.config.lite) {
             this.app.get([ "/", "/index.html" ], (_req, res) => {
                 res.type("html").send(this.buildLiteLandingHTML());
             });
+            // Catch-all HTML routes → same status page (agent has no full UI)
+            this.app.get("*", (req, res, next) => {
+                if (req.path.startsWith("/socket.io")) {
+                    return next();
+                }
+                // Prefer JSON for API-ish paths
+                if (req.path.startsWith("/api")) {
+                    res.status(404).json({
+                        ok: false,
+                        msg: "imtv-lite agent has no web UI; connect from main Dockge",
+                    });
+                    return;
+                }
+                res.type("html").send(this.buildLiteLandingHTML());
+            });
+        } else {
+            // Full image: static SPA
+            this.app.use("/", expressStaticGzip("frontend-dist", {
+                enableBrotli: true,
+            }));
         }
-
-        // Static files (full UI still available at other paths / for debugging)
-        this.app.use("/", expressStaticGzip("frontend-dist", {
-            enableBrotli: true,
-        }));
 
         // Universal Route Handler, must be at the end of all express routes.
         this.app.get("*", async (_request, response) => {
@@ -485,7 +505,7 @@ export class DockgeServer {
     /**
      * Minimal status page for imtv-lite agents (no full SPA required).
      */
-    private buildLiteLandingHTML() : string {
+    buildLiteLandingHTML() : string {
         const name = this.config.agentName || "dockge-lite";
         const port = this.config.port;
         const version = packageJSON.version;

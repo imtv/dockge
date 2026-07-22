@@ -13,7 +13,7 @@ COPY --chown=node:node  ./package-lock.json ./package-lock.json
 RUN npm ci --omit=dev
 
 ############################################
-# ⭐ Main Image
+# ⭐ Main Image (full UI — imtv)
 ############################################
 FROM louislam/dockge:base AS release
 WORKDIR /app
@@ -28,6 +28,37 @@ RUN mkdir ./data
 # - https://github.com/sagemathinc/cocalc/issues/6963
 # - https://github.com/microsoft/node-pty/issues/630#issuecomment-1987212447
 ENV UV_USE_IO_URING=0
+
+VOLUME /app/data
+EXPOSE 5001
+HEALTHCHECK --interval=60s --timeout=30s --start-period=60s --retries=5 CMD extra/healthcheck
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+CMD ["tsx", "./backend/index.ts"]
+
+############################################
+# 🪶 Lite Image (agent only — imtv-lite)
+# No frontend SPA / no frontend build. Socket agent + docker only.
+############################################
+FROM louislam/dockge:base AS lite
+WORKDIR /app
+COPY --chown=node:node --from=build_healthcheck /app/extra/healthcheck /app/extra/healthcheck
+COPY --from=build /app/node_modules /app/node_modules
+# Backend runtime only — deliberately omit frontend / frontend-dist / docs / CI
+COPY --chown=node:node ./package.json ./package.json
+COPY --chown=node:node ./package-lock.json ./package-lock.json
+COPY --chown=node:node ./tsconfig.json ./tsconfig.json
+COPY --chown=node:node ./backend ./backend
+COPY --chown=node:node ./common ./common
+RUN mkdir ./data \
+    && mkdir -p ./frontend-dist \
+    && printf '%s\n' \
+      'imtv-lite: agent image (no web UI).' \
+      'Connect from main Dockge: Settings → Agents' \
+      > ./frontend-dist/README.txt
+
+ENV UV_USE_IO_URING=0
+# Baked in: always agent mode (compose can still set username/password/name)
+ENV DOCKGE_LITE=1
 
 VOLUME /app/data
 EXPOSE 5001

@@ -14,9 +14,9 @@
 | 代理分支 | `imtv-lite`（远程机仅 agent） |
 | 官方上游 remote | `upstream` → `https://github.com/louislam/dockge.git` |
 | 自己的 remote | `origin` → `https://github.com/imtv/dockge.git` |
-| 主控镜像 | `ghcr.io/imtv/dockge:imtv` |
-| 代理镜像 | `ghcr.io/imtv/dockge:imtv-lite` |
-| 构建 Action | `.github/workflows/ghcr-build.yml`（push `imtv` / `imtv-lite` 触发） |
+| 主控镜像 | `ghcr.io/imtv/dockge:imtv`（Dockerfile `release`，含完整前端） |
+| 代理镜像 | `ghcr.io/imtv/dockge:imtv-lite`（Dockerfile `lite`，**无 SPA / 不构建前端**） |
+| 构建 Action | `.github/workflows/ghcr-build.yml`（push 触发；**仅 GitHub 构建，勿本机 docker push**） |
 
 ---
 
@@ -31,17 +31,24 @@
 
 ---
 
-## imtv-lite（远程代理机）
+## imtv-lite（远程代理机 · 独立轻量镜像）
 
 适用：多台机器，只在一台跑完整面板，其它机器当 agent。
+
+**为何单独镜像：** `imtv-lite` 不是「同一镜像 + 一个 env」。  
+CI 用 Dockerfile **`target: lite`** 打包：不跑 `npm run build:frontend`、**不打进 `frontend-dist`/前端源码**，只含 `backend` + `common` + 生产 `node_modules`，并默认 `DOCKGE_LITE=1`。
 
 | 对比 | 主控 `imtv` | 代理 `imtv-lite` |
 |------|-------------|------------------|
 | 镜像 | `ghcr.io/imtv/dockge:imtv` | `ghcr.io/imtv/dockge:imtv-lite` |
-| Web | 完整 UI | 简易状态页 + 仍可走 socket |
+| Docker target | `release` | `lite` |
+| 前端 | 完整 SPA | **无**（仅一页 agent 状态 HTML） |
+| CI | 构建 frontend + 镜像 | **跳过 frontend**，直接 build lite |
 | 账号 | Web Setup 或已有库 | compose 环境变量预置 |
 | 镜像更新检查 | 本机 | 本机（结果经 agent 推到主控） |
 | 谁连谁 | 主控 **主动连接** 代理 | 等待被连接 |
+
+> 体积说明：底层仍是官方 `louislam/dockge:base`（含 Node、docker CLI 等），所以不会变成几十 MB 的 sidecar；省下的是前端静态资源与前端构建时间。代理语义与产物内容与主控镜像不同。
 
 ### 代理机 compose 示例
 

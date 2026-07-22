@@ -1,4 +1,6 @@
 # imtv: build and push image to GitHub Container Registry
+# - branch imtv      → full UI image  (target: release, tag: imtv)
+# - branch imtv-lite → agent-only     (target: lite,    tag: imtv-lite, no frontend build)
 name: Build and push to GHCR
 
 on:
@@ -41,14 +43,18 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Use Node.js 22
+        if: github.ref_name != 'imtv-lite'
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
+      # Full image only: SPA build. Lite agent image has no frontend.
       - name: Install dependencies
+        if: github.ref_name != 'imtv-lite'
         run: npm clean-install --no-fund --ignore-scripts
 
       - name: Build frontend
+        if: github.ref_name != 'imtv-lite'
         run: npm run build:frontend
 
       - name: Docker metadata
@@ -68,10 +74,10 @@ jobs:
         with:
           context: .
           file: ./docker/Dockerfile
-          target: release
+          # release = full UI; lite = agent-only (no frontend-dist)
+          target: ${{ github.ref_name == 'imtv-lite' && 'lite' || 'release' }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Base layers from louislam/dockge (public on Docker Hub)
           provenance: false
